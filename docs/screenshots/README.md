@@ -11,9 +11,9 @@ retained here for review and future updates. No bot token is shown.
 - `message-content.png`: Message Content Intent row only.
 - `oauth2-scopes.png`: scope selector before checking bot and applications.commands.
 
-These four captures use the Polish interface. The English guide explains the
-corresponding controls. Browser tabs, account menus and unrelated content have
-been cropped out.
+These four captures use the English (US) interface. Browser tabs, account menus
+and unrelated content have been cropped out. The account language was restored
+after capturing the screenshots.
 
 ## Supplied reference
 
