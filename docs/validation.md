@@ -27,10 +27,14 @@ using the pinned Linux amd64 image on an Apple Silicon host (emulation).
   IDs, secret references, private file permissions, preservation of the generated
   gateway token on rerun, and leaving state untouched after incomplete input.
   Environment values are parsed as data rather than executed as shell text.
-- **10-page PDF, revision 4** generated with ReportLab 4.4.9, text extracted with pypdf, and
+- **6-page PDF, revision 5**, authored in standalone LaTeX with 15 numbered
+  installation steps. Exported with the existing local pdfLaTeX compiler,
+  text extracted with pypdf, and
   every page rendered with Poppler and visually reviewed. Code remains selectable;
   clickable source links are present. Text geometry was also inspected for footer
   clearance; the final layout has no clipped code or overlapping content.
+  The earlier ten-page Markdown guide is retained as extended notes. The PDF
+  export script now compiles `docs/guide.tex` and requires no Python packages.
 - Revision 2 adds complete host-tool installation for fresh Ubuntu 24.04 amd64:
   Git, Python, editor, download/certificate support, monitoring tools, SSH client,
   Docker Engine and Compose. Docker repository and post-installation steps were

@@ -3,10 +3,11 @@
 OpenClaw + Ollama + Qwen3.5 2B Q4_K_M, served through a restricted Discord channel.
 CPU only, targeting a **Linux amd64 host with 8 GB total RAM**.
 
-**Read the [10-page English deployment guide](output/pdf/sonne-openclaw-cpu-8gb.pdf)**
-or its [Markdown source](docs/guide.md). It starts with host-tool installation on
-a fresh Ubuntu system, then covers Docker, downloading the project, bot setup, the
-system prompt, acceptance checks, memory measurement and maintenance.
+**Read the [step-by-step English deployment guide](output/pdf/sonne-openclaw-cpu-8gb.pdf)**
+or edit its [standalone LaTeX source](docs/guide.tex). Its 15 numbered steps cover
+host tools, Docker, downloading the project, your Discord bot, the local model,
+the system prompt and acceptance checks. The [extended notes](docs/guide.md)
+retain additional configuration and troubleshooting details.
 
 This is a documented deployment profile, **not a measured 8 GB benchmark**.
 OpenClaw 2026.9.8 configuration validation and static checks are verified locally.
@@ -124,7 +125,8 @@ The generator replaces the generated config, so make lasting edits in the templa
 - `scripts/configure.py`: dependency-free config generation with numeric ID checks.
 - `docs/`: guide source, validation status, source links and version notes.
 - `examples/vision-check.png`: synthetic image for the acceptance test.
-- `scripts/build_pdf.py`: rebuild the PDF with ReportLab.
+- `docs/guide.tex`: standalone LaTeX source for the concise installation procedure.
+- `scripts/build_pdf.py`: export the PDF with an existing pdflatex or Tectonic compiler.
 - `tests/check_mounts.cjs`: checks prompt protection and writable files inside
   a disposable container, without starting the gateway or contacting Discord.
 
@@ -141,10 +143,14 @@ docker compose run --rm --no-deps -T openclaw \
 docker compose run --rm --no-deps openclaw \
   node dist/index.js config validate --json
 
-python3 -m venv .venv
-.venv/bin/pip install -r requirements-pdf.txt
-.venv/bin/python scripts/build_pdf.py
+python3 scripts/build_pdf.py
 ```
+
+PDF authoring is optional and is not needed to deploy the agent. Open
+`docs/guide.tex` in Codex's built-in LaTeX editor for source editing and live
+preview, or in a LaTeX editor such as Overleaf. The export script above requires
+an existing pdflatex installation (with the packages named in the source) or
+Tectonic; it has no third-party Python dependencies.
 
 ## Docker Desktop mount error when upgrading an older checkout
 

@@ -1,6 +1,8 @@
 # OpenClaw on an 8 GB CPU host
 
-Sonne / Technical deployment guide / 7 October 2026 / Revision 4
+Sonne / Extended deployment notes / 7 October 2026
+
+For the concise, current installation procedure, use [the PDF](../output/pdf/sonne-openclaw-cpu-8gb.pdf), authored in [standalone LaTeX](guide.tex). The page references below refer to the earlier ten-page extended guide.
 
 ## 1. Deployment profile
 
@@ -457,7 +459,7 @@ The guide targets the pinned releases below. Upstream web documentation can evol
 ### Rebuild the PDF
 
 ```bash
-python3 -m venv .venv
-.venv/bin/pip install -r requirements-pdf.txt
-.venv/bin/python scripts/build_pdf.py
+python3 scripts/build_pdf.py
 ```
+
+The current PDF is built from `docs/guide.tex`. Use the built-in Codex LaTeX editor, or an existing pdflatex/Tectonic installation for the export command above. No Python authoring packages are required.

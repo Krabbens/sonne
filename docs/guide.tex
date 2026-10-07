@@ -1,0 +1,359 @@
+\documentclass[10pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[margin=20mm,headheight=14pt]{geometry}
+\usepackage{microtype}
+\usepackage{xcolor}
+\usepackage{listings,upquote}
+\usepackage{enumitem}
+\usepackage{booktabs,tabularx}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\definecolor{ink}{HTML}{18334B}
+\definecolor{codebg}{HTML}{F4F5F6}
+\hypersetup{colorlinks=true,urlcolor=ink,linkcolor=ink,pdftitle={Sonne: OpenClaw deployment on an 8 GB CPU host},pdfauthor={Sonne contributors}}
+\pagestyle{fancy}\fancyhf{}
+\fancyhead[L]{\small\textsc{Sonne / Deployment procedure}}
+\fancyhead[R]{\small Ubuntu 24.04 / CPU only}
+\fancyfoot[L]{\footnotesize Revision 5 \enspace\textperiodcentered\enspace 7 October 2026}
+\fancyfoot[R]{\footnotesize\thepage}
+\renewcommand{\headrulewidth}{0.3pt}
+\setlength{\parindent}{0pt}\setlength{\parskip}{5pt}
+\setlist[enumerate]{leftmargin=*,itemsep=3pt,topsep=3pt}
+\lstset{basicstyle=\ttfamily\footnotesize,backgroundcolor=\color{codebg},frame=single,rulecolor=\color{codebg},framesep=5pt,columns=fullflexible,keepspaces=true,showstringspaces=false,upquote=true,breaklines=false,aboveskip=6pt,belowskip=6pt}
+\newcounter{step}
+\newcommand{\step}[1]{\refstepcounter{step}\vspace{5pt}\par{\large\bfseries\color{ink}\thestep.\ #1}\par\vspace{2pt}}
+\newcommand{\checkpoint}[1]{\textbf{Check:} #1\par}
+\newcommand{\pageheading}[1]{{\Large\bfseries\color{ink}#1}\par\vspace{4pt}}
+\begin{document}
+{\LARGE\bfseries OpenClaw on an 8 GB CPU host}\par
+{\large A step-by-step installation with Docker, Ollama and Discord}\par
+\vspace{6pt}
+\textbf{Target:} a fresh Ubuntu 24.04 LTS computer, Intel/AMD x86-64
+(\texttt{amd64}), 8 GB total RAM, no GPU, about 15 GB free disk, internet access,
+and a normal user with \texttt{sudo} access. You also need your own Discord
+account and permission to add a bot to a server.
+
+\textbf{Result:} one local text-and-image agent, a restricted Discord channel,
+and editable persona and file-handling instructions. Allowed users share the
+conversation and files. Audio and video are outside this procedure.
+
+\begin{tabularx}{\linewidth}{@{}lX@{}}\toprule
+Component & Pinned selection \\\midrule
+OpenClaw & \texttt{2026.9.8} with its official Discord plugin \\
+Ollama & \texttt{0.40.0} \\
+Model & \texttt{qwen3.5:2b-q4\_K\_M}, text and images \\
+Memory caps & Ollama: 4 GiB; OpenClaw: 2 GiB \\\bottomrule
+\end{tabularx}
+
+The model download is approximately 1.9 GB; this is not its RAM usage.
+Whole-host fit on 8 GB remains unmeasured. Complete step 15 before accepting
+this deployment. Inference is local; Discord transports messages and images.
+
+\step{Check your computer}
+Open Terminal as your normal Linux user. Run each block in order and stop on
+an error. Preserve newlines: a trailing \texttt{\textbackslash} continues a command.
+\begin{lstlisting}
+cat /etc/os-release
+dpkg --print-architecture
+free -h
+df -h "$HOME"
+\end{lstlisting}
+\checkpoint{Ubuntu 24.04, architecture \texttt{amd64}, and sufficient RAM and disk.}
+
+\step{Install the required host tools}
+\begin{lstlisting}
+sudo apt-get update
+sudo apt-get install -y ca-certificates curl git nano \
+  python3 procps ripgrep openssh-client
+\end{lstlisting}
+\texttt{sudo} asks for your Linux password. Docker will supply OpenClaw, Ollama,
+Node.js and npm; they do not need separate host installations.
+
+\newpage
+\pageheading{Install Docker and download the project}
+\step{Install Docker Engine and Compose}
+These commands target a fresh Ubuntu 24.04 \texttt{amd64} system. If Docker,
+containerd or Podman is already installed, check the package conflicts in the
+\href{https://docs.docker.com/engine/install/ubuntu/}{official Docker instructions}
+first; do not remove a runtime serving other workloads.
+\begin{lstlisting}
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
+  -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+sudo tee /etc/apt/sources.list.d/docker.sources >/dev/null <<'EOF_DOCKER'
+Types: deb
+URIs: https://download.docker.com/linux/ubuntu
+Suites: noble
+Components: stable
+Architectures: amd64
+Signed-By: /etc/apt/keyrings/docker.asc
+EOF_DOCKER
+sudo apt-get update
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io \
+  docker-buildx-plugin docker-compose-plugin
+sudo systemctl enable --now docker
+\end{lstlisting}
+
+\step{Enable Docker for your user and verify it}
+Docker group membership grants administrative control of this computer.
+Add only your trusted operator account.
+\begin{lstlisting}
+sudo groupadd -f docker
+sudo usermod -aG docker "$(id -un)"
+\end{lstlisting}
+\textbf{Log out completely and log back in}, or reconnect your SSH session.
+Then run without \texttt{sudo}:
+\begin{lstlisting}
+id -nG
+docker version
+docker compose version
+docker run --rm hello-world
+\end{lstlisting}
+\checkpoint{The group list includes \texttt{docker}; Client and Server respond;
+Compose is v2 or newer; the test prints \texttt{Hello from Docker!}}
+
+\step{Download Sonne}
+No GitHub account or token is required.
+\begin{lstlisting}
+mkdir -p ~/agents
+cd ~/agents
+git clone https://github.com/Krabbens/sonne.git
+cd sonne
+ls compose.yaml .env.example scripts/configure.py
+\end{lstlisting}
+\checkpoint{All three files are listed. Run later terminal commands from this folder.
+After reopening Terminal, use \texttt{cd \textasciitilde/agents/sonne}.}
+
+\newpage
+\pageheading{Create your Discord bot}
+\step{Create the application and invite the bot}
+In your browser:
+\begin{enumerate}
+\item Open \href{https://discord.com/developers/applications}{discord.com/developers/applications}.
+Choose \textbf{New Application}; name it \textbf{Sonne}.
+\item Open \textbf{Bot}. Enable \textbf{Message Content Intent}.
+Leave Server Members and Presence intents disabled.
+\item Generate or reset the bot token. Keep it for step 8; do not publish it.
+\item Open \textbf{OAuth2 / URL Generator}. Select scopes \texttt{bot} and
+\texttt{applications.commands}.
+\item Grant \textbf{View Channels, Send Messages, Read Message History,
+Embed Links} and \textbf{Attach Files}. Do not grant Administrator.
+\item Open the generated invitation URL, choose your server, and authorize the bot.
+\item Create one ordinary text channel accessible to the bot and intended users.
+\end{enumerate}
+\checkpoint{Your own bot appears in your server. It may stay offline until step 11.}
+
+\step{Copy the four types of ID}
+\begin{enumerate}
+\item Copy the \textbf{Application ID} from the application's General Information page.
+\item In Discord, open \textbf{User Settings / Advanced}; enable \textbf{Developer Mode}.
+\item Right-click your server and select \textbf{Copy Server ID}.
+\item Right-click the selected channel and select \textbf{Copy Channel ID}.
+\item Right-click each permitted user and select \textbf{Copy User ID}.
+\end{enumerate}
+Use numeric IDs, not names. Direct messages and other channels are disabled
+by the supplied configuration.
+
+\step{Enter your token and IDs}
+Back in Terminal:
+\begin{lstlisting}
+cd ~/agents/sonne
+cp .env.example .env
+nano .env
+\end{lstlisting}
+Replace these five settings. The digits below are examples only.
+\begin{lstlisting}
+DISCORD_BOT_TOKEN=your-real-bot-token
+DISCORD_APPLICATION_ID=111111111111111111
+DISCORD_GUILD_ID=222222222222222222
+DISCORD_CHANNEL_ID=333333333333333333
+DISCORD_USER_IDS=444444444444444444,555555555555555555
+\end{lstlisting}
+Separate user IDs with commas and no spaces. Leave gateway token and local
+UID/GID blank; keep the image settings unchanged. Save in nano with
+\textbf{Ctrl+O}, \textbf{Enter}, then exit with \textbf{Ctrl+X}.
+
+\step{Generate and check the configuration}
+\begin{lstlisting}
+python3 scripts/configure.py
+docker compose config --quiet
+\end{lstlisting}
+\checkpoint{Both commands exit successfully. The generator creates private state,
+sets your container UID/GID and generates the gateway token. Run it without sudo.}
+
+\newpage
+\pageheading{Download the model and start the agent}
+\step{Pull the images and install the Discord plugin}
+\begin{lstlisting}
+docker compose pull
+\end{lstlisting}
+Wait for both images to finish downloading. Install the pinned official plugin:
+\begin{lstlisting}
+docker compose run --rm --no-deps openclaw \
+  node dist/index.js plugins install @openclaw/discord@2026.9.8 \
+  --pin --accept-capabilities --force
+\end{lstlisting}
+This is the first-install command; \texttt{--force} can overwrite an existing plugin.
+Then validate:
+\begin{lstlisting}
+docker compose run --rm --no-deps openclaw \
+  node dist/index.js config validate --json
+\end{lstlisting}
+\checkpoint{Validation succeeds with no missing-plugin or unfinished-migration warning.
+If it fails, stop and use the diagnostics on page 6.}
+
+\step{Download the exact model and start OpenClaw}
+\begin{lstlisting}
+docker compose up -d ollama
+docker compose exec -T ollama ollama pull qwen3.5:2b-q4_K_M
+docker compose exec -T ollama ollama list
+\end{lstlisting}
+\checkpoint{The list contains \texttt{qwen3.5:2b-q4\_K\_M}. Do not use the bare
+\texttt{qwen3.5} tag; it selects a larger model.}
+\begin{lstlisting}
+docker compose up -d openclaw
+docker compose ps
+\end{lstlisting}
+\checkpoint{Both services become healthy. Health alone does not prove inference works.}
+
+\step{Check the local model and Discord connection}
+Run the model-routing probe:
+\begin{lstlisting}
+docker compose exec -T openclaw node dist/index.js \
+  infer model run --local --agent sonne \
+  --model ollama/qwen3.5:2b-q4_K_M \
+  --prompt 'Reply with exactly: sonne-ok' --json
+\end{lstlisting}
+\checkpoint{The completion contains \texttt{sonne-ok}. The first CPU request can be slow.}
+Now open the allowed Discord channel as an allowed user. Mention the actual bot:
+\begin{lstlisting}
+@Sonne Reply with exactly: sonne-ok
+\end{lstlisting}
+\checkpoint{A visible reply arrives in Discord. This checks the agent connection;
+the terminal probe checks only model routing.}
+If either check fails:
+\begin{lstlisting}
+docker compose logs --tail=100 openclaw
+docker compose logs --tail=100 ollama
+\end{lstlisting}
+
+\newpage
+\pageheading{Set the prompt and test useful work}
+\step{Customize the supplied instructions}
+The repository already includes an English persona in \texttt{SOUL.md} and
+file-handling rules in \texttt{AGENTS.md}. Edit the host copies:
+\begin{lstlisting}
+nano templates/workspace/SOUL.md
+nano templates/workspace/AGENTS.md
+\end{lstlisting}
+The supplied persona begins:
+\begin{lstlisting}
+You are Sonne, a practical assistant for understanding images and
+working with small text files. Reply in the user's language.
+Keep answers concise and concrete.
+
+Describe what is visible in an image, including relevant text.
+Distinguish observations from guesses. If text is unreadable,
+ask for a closer crop. Never claim to see an image that was not
+provided or successfully loaded.
+\end{lstlisting}
+Keep the rules requiring real tool results, workspace-only file access and
+confirmation before overwriting. These files supplement OpenClaw's internal
+system prompt. Apply your changes:
+\begin{lstlisting}
+docker compose up -d --force-recreate openclaw
+\end{lstlisting}
+Start a fresh session in the optional operator UI at
+\href{http://127.0.0.1:18789/}{127.0.0.1:18789}; enter the gateway token from
+\texttt{.env}. Pair your browser if requested (see README).
+Prompt files are read-only inside the container. Only \texttt{/workspace/files}
+is writable; it maps to host \texttt{workspace/files/}.
+
+\step{Verify images, files and access restrictions}
+Perform these checks in the allowed channel, one request at a time:
+\begin{enumerate}
+\item Attach \texttt{examples/vision-check.png}. Mention the bot and ask:
+\emph{Read the large label and identify the red shape.}
+Expect \textbf{SONNE 42} and a \textbf{red square}. Repeat with your own readable screenshot.
+\item Ask the bot to create and read back a disposable file:
+\end{enumerate}
+\begin{lstlisting}
+@Sonne Create files/smoke.txt containing exactly SONNE FILE OK.
+Read it back and report the workspace-relative path.
+\end{lstlisting}
+Verify on the host:
+\begin{lstlisting}
+cat workspace/files/smoke.txt
+\end{lstlisting}
+\begin{enumerate}[start=3]
+\item Ask to overwrite that file. Require confirmation, approve, then check the file again.
+\item Ask to read \texttt{/etc/passwd} and edit \texttt{SOUL.md}.
+Verify denied tool results in session details or logs, not just a verbal refusal.
+\item Try a DM, another channel and an unlisted user. Expect no agent reply or file action.
+\end{enumerate}
+\checkpoint{The actual image and file results match. All permitted users share the files.}
+
+\newpage
+\pageheading{Accept the deployment and keep it running}
+\step{Measure memory under representative load}
+In separate terminals, monitor while repeating step 14, including a cold model
+load and requests from two users:
+\begin{lstlisting}
+free -h
+docker compose stats
+vmstat 1
+docker compose exec -T ollama ollama ps
+\end{lstlisting}
+Confirm CPU processing. In \texttt{vmstat}, ignore the first row and inspect later
+\texttt{si/so} columns for sustained swap activity. After the test:
+\begin{lstlisting}
+docker inspect $(docker compose ps -aq) \
+  --format '{{.Name}} OOM={{.State.OOMKilled}} restarts={{.RestartCount}}'
+sudo journalctl -k --since '15 minutes ago' | rg -i 'oom|out of memory'
+docker compose restart
+cat workspace/files/smoke.txt
+\end{lstlisting}
+\checkpoint{Tasks complete, no OOM kill or repeated restarts, available host RAM stays
+above 512 MiB, no continuous swap growth, and files survive restart. Record CPU,
+usable RAM, memory peaks and response times. If these fail, this host is not accepted.}
+The preset uses a 16,384-token context, 1,024-token output cap, no GPU, thinking
+off and serialized work. A 2B model can misread text or misuse tools; check real outputs.
+
+\vspace{4pt}\textbf{Routine commands}
+\begin{lstlisting}
+docker compose logs --tail=100 openclaw
+docker compose restart openclaw
+docker compose stop
+docker compose start
+\end{lstlisting}
+\textbf{Backup before updates} (includes secrets and conversations):
+\begin{lstlisting}
+docker compose stop
+umask 077
+tar -czf ../sonne-backup-$(date +%Y%m%d-%H%M%S).tgz \
+  .env .state workspace
+docker compose start
+\end{lstlisting}
+Keep the archive private. The model can be downloaded again. Do not run
+\texttt{docker compose down -v} unless deleting the model volume is intended.
+
+\textbf{If startup fails.} Check token, numeric IDs, Message Content Intent,
+channel permissions and an explicit mention. After editing \texttt{.env}, rerun
+\texttt{python3 scripts/configure.py} and recreate OpenClaw. For unfinished
+plugin migrations, inspect \texttt{node dist/index.js update status --json}
+with the same \texttt{docker compose run --rm --no-deps openclaw} prefix as step 10.
+For Docker Desktop mount errors, update the checkout and follow README's mount check.
+
+\textbf{Evidence and sources.} Configuration, plugin installation in fresh state
+and container mounts were checked locally; fresh Ubuntu installation, live
+Discord inference and 8 GB whole-host fit remain unverified. Full records:
+\href{https://github.com/Krabbens/sonne/blob/main/docs/validation.md}{validation record}
+and \href{https://github.com/Krabbens/sonne/blob/main/docs/versions.json}{image versions}.
+Primary references:
+\href{https://docs.docker.com/engine/install/ubuntu/}{Docker installation};
+\href{https://github.com/openclaw/openclaw/tree/v2026.9.8/docs}{OpenClaw 2026.9.8 documentation};
+\href{https://ollama.com/library/qwen3.5:2b-q4_K_M}{model card};
+\href{https://docs.ollama.com/docker}{Ollama Docker}.
+\end{document}
