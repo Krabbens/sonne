@@ -1,0 +1,77 @@
+name: sonne
+
+services:
+  ollama:
+    image: ${OLLAMA_IMAGE:-ollama/ollama:0.40.0}
+    platform: linux/amd64
+    restart: unless-stopped
+    environment:
+      OLLAMA_HOST: 0.0.0.0:11434
+      OLLAMA_NO_CLOUD: "1"
+      OLLAMA_CONTEXT_LENGTH: "16384"
+      OLLAMA_NUM_PARALLEL: "1"
+      OLLAMA_MAX_LOADED_MODELS: "1"
+      OLLAMA_KEEP_ALIVE: 5m
+    volumes:
+      - ollama-models:/root/.ollama
+    mem_limit: 4g
+    memswap_limit: 4g
+    healthcheck:
+      test: [CMD, ollama, list]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+  openclaw:
+    image: ${OPENCLAW_IMAGE:-ghcr.io/openclaw/openclaw:2026.9.8}
+    platform: linux/amd64
+    user: "${LOCAL_UID:?Run scripts/configure.py}:${LOCAL_GID:?Run scripts/configure.py}"
+    restart: unless-stopped
+    environment:
+      HOME: /home/node
+      OPENCLAW_HOME: /home/node
+      OPENCLAW_STATE_DIR: /home/node/.openclaw
+      OPENCLAW_CONFIG_PATH: /home/node/.openclaw/openclaw.json
+      OPENCLAW_CONFIG_DIR: /home/node/.openclaw
+      OPENCLAW_WORKSPACE_DIR: /home/node/.openclaw/workspace
+      OPENCLAW_GATEWAY_PORT: "18789"
+      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN:?Run scripts/configure.py}
+      DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN:?Set DISCORD_BOT_TOKEN in .env}
+      NODE_OPTIONS: --max-old-space-size=1024
+      OPENCLAW_DISABLE_BONJOUR: "1"
+      TZ: Europe/Warsaw
+    volumes:
+      - ./.state/openclaw:/home/node/.openclaw
+      - ./workspace:/home/node/.openclaw/workspace
+      - ./templates/workspace/SOUL.md:/home/node/.openclaw/workspace/SOUL.md:ro
+      - ./templates/workspace/AGENTS.md:/home/node/.openclaw/workspace/AGENTS.md:ro
+    ports:
+      - 127.0.0.1:18789:18789
+    command: [node, dist/index.js, gateway, --bind, lan, --port, "18789"]
+    depends_on:
+      ollama:
+        condition: service_healthy
+    mem_limit: 2g
+    memswap_limit: 2g
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    healthcheck:
+      test: [CMD, node, dist/docker-healthcheck.js]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+volumes:
+  ollama-models:

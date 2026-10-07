@@ -1,0 +1,27 @@
+{
+  "checked_on": "2026-10-07",
+  "target_platform": "linux/amd64",
+  "openclaw": {
+    "version": "2026.9.8",
+    "cli_reported_commit": "fc23bc8",
+    "image": "ghcr.io/openclaw/openclaw:2026.9.8",
+    "amd64_manifest_digest": "sha256:5139eb3ca71ba20d3cd3aa933338e63dbff857d384e482fbdb7dd557849e5529"
+  },
+  "discord_plugin": {
+    "package": "@openclaw/discord@2026.9.8",
+    "verified": "Installed with pinned OpenClaw CLI in isolated temporary state"
+  },
+  "ollama": {
+    "version": "0.40.0",
+    "image": "ollama/ollama:0.40.0",
+    "amd64_manifest_digest": "sha256:2b28812c24b17215d15f8f1c0c2bf939d3b5426ba1e8bea15b046f43d5bd2746"
+  },
+  "model": {
+    "tag": "qwen3.5:2b-q4_K_M",
+    "registry_reported_short_id": "1e2d21a4f03a",
+    "registry_reported_download_size": "approximately 1.9 GB",
+    "ram_fit": "Not measured; see guide page 6"
+  },
+  "pdf_builder": {"reportlab": "4.4.9"},
+  "note": "Version tags can move. These are observed manifest identities, not runtime benchmark results."
+}

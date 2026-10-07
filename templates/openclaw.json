@@ -1,0 +1,119 @@
+{
+  "gateway": {
+    "mode": "local",
+    "bind": "lan",
+    "port": 18789,
+    "auth": {
+      "mode": "token",
+      "token": {"source": "env", "provider": "default", "id": "OPENCLAW_GATEWAY_TOKEN"}
+    },
+    "controlUi": {
+      "allowedOrigins": ["http://127.0.0.1:18789", "http://localhost:18789"]
+    }
+  },
+  "models": {
+    "mode": "replace",
+    "providers": {
+      "ollama": {
+        "baseUrl": "http://ollama:11434",
+        "apiKey": "ollama-local",
+        "api": "ollama",
+        "timeoutSeconds": 600,
+        "models": [{
+          "id": "qwen3.5:2b-q4_K_M",
+          "name": "Qwen3.5 2B Q4_K_M (local CPU)",
+          "reasoning": false,
+          "input": ["text", "image"],
+          "contextWindow": 262144,
+          "contextTokens": 16384,
+          "maxTokens": 1024,
+          "cost": {"input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0},
+          "params": {
+            "num_ctx": 16384,
+            "num_gpu": 0,
+            "num_predict": 1024,
+            "thinking": false,
+            "keep_alive": "5m"
+          }
+        }]
+      }
+    }
+  },
+  "agents": {
+    "defaults": {
+      "workspace": "/home/node/.openclaw/workspace",
+      "skipBootstrap": true,
+      "bootstrapMaxChars": 4000,
+      "bootstrapTotalMaxChars": 8000,
+      "model": {"primary": "ollama/qwen3.5:2b-q4_K_M", "fallbacks": []},
+      "imageModel": {"primary": "ollama/qwen3.5:2b-q4_K_M", "fallbacks": []},
+      "utilityModel": "ollama/qwen3.5:2b-q4_K_M",
+      "thinkingDefault": "off",
+      "elevatedDefault": "off",
+      "maxConcurrent": 1,
+      "timeoutSeconds": 900,
+      "imageMaxDimensionPx": 1024,
+      "mediaMaxMb": 5,
+      "userTimezone": "Europe/Warsaw",
+      "skills": [],
+      "heartbeat": {"every": "0m"},
+      "compaction": {
+        "mode": "safeguard",
+        "thinkingLevel": "off",
+        "timeoutSeconds": 600,
+        "memoryFlush": {"enabled": false}
+      }
+    },
+    "entries": {"sonne": {"name": "Sonne"}}
+  },
+  "tools": {
+    "allow": ["read", "write", "edit", "view_image"],
+    "deny": ["apply_patch"],
+    "fs": {"workspaceOnly": true},
+    "elevated": {"enabled": false},
+    "toolSearch": false,
+    "loopDetection": {"enabled": true},
+    "media": {
+      "concurrency": 1,
+      "models": [{
+        "provider": "ollama",
+        "model": "qwen3.5:2b-q4_K_M",
+        "capabilities": ["image"],
+        "timeoutSeconds": 600
+      }],
+      "image": {"enabled": true},
+      "audio": {"enabled": false},
+      "video": {"enabled": false}
+    }
+  },
+  "browser": {"enabled": false},
+  "plugins": {
+    "allow": ["ollama", "discord"],
+    "slots": {"memory": "none"},
+    "entries": {"ollama": {"enabled": true}, "discord": {"enabled": true}}
+  },
+  "skills": {"allowBundled": []},
+  "cron": {"enabled": false},
+  "commands": {"config": false, "debug": false, "restart": false, "bash": false},
+  "channels": {
+    "discord": {
+      "enabled": true,
+      "token": {"source": "env", "provider": "default", "id": "DISCORD_BOT_TOKEN"},
+      "applicationId": "__APPLICATION_ID__",
+      "dmPolicy": "disabled",
+      "groupPolicy": "allowlist",
+      "allowBots": false,
+      "configWrites": false,
+      "intents": {"messageContent": true, "guildMembers": false, "presence": false, "voiceStates": false},
+      "historyLimit": 10,
+      "mediaMaxMb": 5,
+      "guilds": {
+        "__GUILD_ID__": {
+          "requireMention": true,
+          "users": "__USER_IDS__",
+          "channels": {"__CHANNEL_ID__": {"enabled": true, "requireMention": true}}
+        }
+      }
+    }
+  }
+}
