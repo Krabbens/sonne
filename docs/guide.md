@@ -1,6 +1,6 @@
 # OpenClaw on an 8 GB CPU host
 
-Sonne / Technical deployment guide / 7 October 2026 / Revision 2
+Sonne / Technical deployment guide / 7 October 2026 / Revision 3
 
 ## 1. Deployment profile
 
@@ -256,7 +256,7 @@ ask for a closer crop. Never claim to see an image that was not
 provided or successfully loaded.
 ```
 
-The complete files also require real tool results, workspace-only file work, confirmation before overwriting, and treating instructions inside images or files as untrusted content. Edit the host copies in `templates/workspace/`, then recreate the container to refresh file mounts:
+The complete files also require real tool results, workspace-only file work, confirmation before overwriting, and treating instructions inside images or files as untrusted content. Edit the host copies in `templates/workspace/`, then recreate the container:
 
 ```bash
 nano templates/workspace/SOUL.md
@@ -264,7 +264,7 @@ nano templates/workspace/AGENTS.md
 docker compose up -d --force-recreate openclaw
 ```
 
-Start a fresh session in the operator UI to avoid relying on old conversation context. The files are mounted read-only inside the container. The only exposed tools are `read`, `write`, `edit` and `view_image`; filesystem scope is enforced by `tools.fs.workspaceOnly`, independently of the prompt.
+Start a fresh session in the operator UI to avoid relying on old context. The prompt directory is read-only at `/workspace`; only `/workspace/files` is writable and maps to host `workspace/files/`. Directory mounts avoid Docker Desktop's nested file-mount failure. The only tools are `read`, `write`, `edit` and `view_image`; `tools.fs.workspaceOnly` independently enforces filesystem scope.
 
 For other configuration changes, edit `templates/openclaw.json`, rerun `python3 scripts/configure.py`, then recreate OpenClaw. Direct edits to generated JSON will be replaced by the generator.
 
@@ -407,6 +407,8 @@ To roll back, restore the previous image setting and compatible state backup wit
 
 **Permission denied on user files.** Regenerate local UID/GID as the owning normal Linux user. Check ownership of `.state/` and `workspace/`; repair only these project directories if a previous root-run setup created them. Prompt files are intentionally read-only inside the container.
 
+**Docker Desktop: mountpoint is outside of rootfs.** Update with `git pull --ff-only`, regenerate config, and recreate OpenClaw. Revision 3 uses directory mounts to avoid the [VirtioFS nested file-bind failure](https://github.com/docker/desktop-feedback/issues/420). Run the container mount check in README before repeating the plugin installation if it failed earlier. Keep the existing model volume.
+
 <!-- page -->
 
 ## 10. Validation record and references
@@ -422,7 +424,7 @@ Image manifests were checked for Linux amd64 availability. The supplied PDF was 
 | Ubuntu tools, Docker install, hello-world | Instructions checked; not run on Linux |
 | Generator tests, Compose, OpenClaw schema | Checked locally; see validation record |
 | Official image manifests, Linux amd64 | Checked; image tags recorded |
-| Container startup and live model inference | Not run: Docker daemon unavailable |
+| Container mounts and prompt protection | Mounts checked; inference not run |
 | Discord image/file delivery and access checks | Requires your bot and target host |
 | Whole-host 8 GB RAM / CPU performance | Not measured; use page 8 |
 

@@ -213,7 +213,7 @@ def decorate(canvas, doc):
     canvas.setFont("Helvetica", 7.2)
     canvas.drawRightString(A4[0] - 44, A4[1] - 27, "OPENCLAW / LOCAL CPU / DISCORD")
     canvas.line(44, 34, A4[0] - 44, 34)
-    canvas.drawString(44, 22, "Krabbens/sonne  |  7 October 2026  |  Revision 2")
+    canvas.drawString(44, 22, "Krabbens/sonne  |  7 October 2026  |  Revision 3")
     canvas.drawRightString(A4[0] - 44, 22, f"{doc.page}")
     canvas.restoreState()
 

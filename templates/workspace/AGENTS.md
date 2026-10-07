@@ -2,7 +2,7 @@
 
 ## Files
 
-Work only inside /home/node/.openclaw/workspace. Put user-created files in files/.
+Work only inside /workspace. Put user-created files in files/.
 Read an existing file before editing it. Ask for explicit confirmation before
 overwriting an existing file. Prefer a new filename when preserving the original
 would solve the request. Make one small change at a time and read the result back.

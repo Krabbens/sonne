@@ -2,6 +2,8 @@
 
 Date: **2026-10-07**. Authoring host: macOS / Apple Silicon.
 Deployment target: **Ubuntu 24.04 LTS / Linux amd64 / CPU only / 8 GB total RAM**.
+Revision 3 runtime checks: **Docker Desktop 4.72.0 / Engine 29.4.2 / VirtioFS**,
+using the pinned Linux amd64 image on an Apple Silicon host (emulation).
 
 ## Verified locally
 
@@ -16,15 +18,16 @@ Deployment target: **Ubuntu 24.04 LTS / Linux amd64 / CPU only / 8 GB total RAM*
 - **Docker Compose 5.1.3** normalized the file successfully. Configuration uses
   Compose v2-compatible features; execution with Compose v2 was not tested here.
 - Normalized Compose has 4 GiB and 2 GiB memory/swap limits, no Ollama published
-  port, and only `127.0.0.1:18789` published for the gateway. Both prompt mounts
-  are read-only. Both services select `linux/amd64`.
+  port, and only `127.0.0.1:18789` published for the gateway. The prompt directory
+  is mounted read-only at `/workspace`, with a separate writable directory mount
+  at `/workspace/files`. State is mounted separately. Both services select `linux/amd64`.
 - Official image manifests contain Linux amd64 images. The observed identities
   are recorded in [versions.json](versions.json).
 - **6 generator tests passed**. They check multiple-user routing, invalid/wildcard
   IDs, secret references, private file permissions, preservation of the generated
   gateway token on rerun, and leaving state untouched after incomplete input.
   Environment values are parsed as data rather than executed as shell text.
-- **10-page PDF, revision 2** generated with ReportLab 4.4.9, text extracted with pypdf, and
+- **10-page PDF, revision 3** generated with ReportLab 4.4.9, text extracted with pypdf, and
   every page rendered with Poppler and visually reviewed. Code remains selectable;
   clickable source links are present. Text geometry was also inspected for footer
   clearance; the final layout has no clipped code or overlapping content.
@@ -34,6 +37,24 @@ Deployment target: **Ubuntu 24.04 LTS / Linux amd64 / CPU only / 8 GB total RAM*
   checked against official Docker documentation; private-repository token access
   was checked against official GitHub documentation. Bash code blocks passed
   syntax checks. Host apt installation and `hello-world` were not executed here.
+- Reproduced the original nested file-bind `mountpoint ... is outside of rootfs`
+  failure in a disposable Compose project using the real pinned OpenClaw image.
+  The revision 3 directory-mount layout starts successfully on the same Docker
+  daemon. `tests/check_mounts.cjs` passes inside that container: both prompts are
+  readable, writing or renaming either fails with `EROFS`, and temporary files
+  can be created, read and deleted under `/workspace/files`. Config and runtime
+  workspace paths match. This starts Node only, not a Discord gateway or model.
+- Fixed npm cache permissions for host UIDs that differ from the image's node
+  user (tested UID 501). `NPM_CONFIG_CACHE` now points inside writable persistent
+  state, instead of the image-owned `/home/node/.npm`. The generator also creates
+  a private runtime cache, mounted at `/home/node/.cache`, for OpenClaw's secure
+  temporary-directory fallback. Both caches pass the container write check.
+  See the official
+  [npm configuration reference](https://docs.npmjs.com/cli/v11/using-npm/config/).
+- Installed the official pinned Discord plugin in the real Docker image with
+  synthetic tokens and regenerated config from the final template. A separate
+  one-off container validated that config: **`valid: true`, `warnings: []`**.
+  Plugin discovery survives between one-off containers through persistent state.
 
 ## Commands used
 
@@ -61,16 +82,17 @@ The npm cache and temporary plugin installation are not repository contents.
 
 ## Not executed
 
-The local Docker daemon was unavailable. No container, model runner or Discord
-connection was started. The target Linux host and a real bot token were not
-provided. Therefore none of these is claimed as passing:
+Docker was unavailable for revisions 1 and 2; revision 3 adds real one-off
+container checks on Docker Desktop. No real Discord connection or model inference
+was used in validation. The 8 GB Linux target was not provided. None of the
+following is claimed as passing:
 
-- Container activation, startup migrations, health and readiness.
+- Full gateway startup, migrations, health and readiness.
 - Ubuntu package installation, Docker service setup, group membership and
   `hello-world` on a fresh Linux host.
 - CPU text/vision inference or model tool-call reliability.
 - Discord delivery, live user/channel restrictions and file actions.
-- Filesystem escape refusal or read-only mount behavior at runtime.
+- OpenClaw tool-level filesystem escape refusal (OS mount protection is checked).
 - Persistence after a real container restart.
 - Peak process/host memory, absence of swapping, or response speed on 8 GB.
 

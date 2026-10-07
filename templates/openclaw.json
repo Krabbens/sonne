@@ -41,7 +41,7 @@
   },
   "agents": {
     "defaults": {
-      "workspace": "/home/node/.openclaw/workspace",
+      "workspace": "/workspace",
       "skipBootstrap": true,
       "bootstrapMaxChars": 4000,
       "bootstrapTotalMaxChars": 8000,

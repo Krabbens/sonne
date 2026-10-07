@@ -10,8 +10,9 @@ system prompt, acceptance checks, memory measurement and maintenance.
 
 This is a documented deployment profile, **not a measured 8 GB benchmark**.
 OpenClaw 2026.9.8 configuration validation and static checks are verified locally.
-Container startup, model inference, Discord delivery and RAM fit require the
-target Linux host and your own bot token. See [validation status](docs/validation.md).
+Container mount checks pass on Docker Desktop for macOS. Full gateway startup,
+model inference, Discord delivery and RAM fit still require the target Linux host
+and your own bot token. See [validation status](docs/validation.md).
 
 ## Prerequisites
 
@@ -74,8 +75,13 @@ to `127.0.0.1:18789` and requires the gateway token stored in your local `.env`.
 - Hard memory caps of 4 GiB for Ollama and 2 GiB for OpenClaw. Equal memory/swap
   limits prevent these containers from using swap when the host supports the limits.
 - Only `read`, `write`, `edit`, `view_image`; filesystem scope is the workspace.
-- Operator-managed prompts are mounted read-only. No shell tool, browser,
+- The prompt directory is mounted read-only at `/workspace`, with a separate
+  writable directory mount at `/workspace/files`. Directory mounts avoid the
+  nested file-bind failure on Docker Desktop with VirtioFS. No shell tool, browser,
   embedding model, scheduled heartbeat, Docker socket or cloud fallback.
+- The npm and runtime caches live in writable persistent state, so plugin
+  installation and CLI startup work with a host UID different from the image's
+  built-in node user.
 - A single Discord guild/channel allowlist plus numeric user allowlist.
 
 The 1.9 GB download is not the RAM requirement. Context, vision processing,
@@ -86,7 +92,7 @@ how to accept or reject the profile on your machine.
 
 Edit `templates/workspace/SOUL.md` (persona) or `AGENTS.md` (working rules), then
 run `docker compose up -d --force-recreate openclaw`. Host files can be edited by the operator;
-their copies inside the container are read-only. Existing conversation context
+the prompt directory inside the container is read-only. Existing conversation context
 may still contain old instructions; verify a fresh session from the admin UI.
 
 After changing Discord IDs in `.env` or `templates/openclaw.json`, run
@@ -101,6 +107,8 @@ The generator replaces the generated config, so make lasting edits in the templa
 - `docs/`: guide source, validation status, source links and version notes.
 - `examples/vision-check.png`: synthetic image for the acceptance test.
 - `scripts/build_pdf.py`: rebuild the PDF with ReportLab.
+- `tests/check_mounts.cjs`: checks prompt protection and writable files inside
+  a disposable container, without starting the gateway or contacting Discord.
 
 Real `.env`, `.state/`, `workspace/`, model weights and conversation history are
 excluded from Git. Model weights are downloaded from Ollama, not redistributed here.
@@ -110,6 +118,8 @@ excluded from Git. Model weights are downloaded from Ollama, not redistributed h
 ```bash
 python3 -m unittest discover -s tests -v
 docker compose config --quiet
+docker compose run --rm --no-deps -T openclaw \
+  node - < tests/check_mounts.cjs
 docker compose run --rm --no-deps openclaw \
   node dist/index.js config validate --json
 
@@ -117,6 +127,16 @@ python3 -m venv .venv
 .venv/bin/pip install -r requirements-pdf.txt
 .venv/bin/python scripts/build_pdf.py
 ```
+
+## Docker Desktop mount error when upgrading an older checkout
+
+If an older checkout fails with `mountpoint ... is outside of rootfs`, update it
+with `git pull --ff-only`, rerun `python3 scripts/configure.py`, and repeat the mount
+check above. Revision 3 replaces the two nested file mounts with directory mounts
+and moves the container workspace to `/workspace`. Existing `workspace/files/`,
+state, tokens and the downloaded model remain in their existing host locations.
+Then repeat the plugin installation and config validation if they previously failed,
+and run `docker compose up -d --force-recreate openclaw`.
 
 Upstream OpenClaw: <https://github.com/openclaw/openclaw>.
 Ollama: <https://github.com/ollama/ollama>.

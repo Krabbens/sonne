@@ -80,6 +80,9 @@ def main():
     state.mkdir(parents=True, exist_ok=True)
     (ROOT / ".state").chmod(0o700)
     state.chmod(0o700)
+    cache = state / "cache"
+    cache.mkdir(exist_ok=True)
+    cache.chmod(0o700)
     (ROOT / "workspace/files").mkdir(parents=True, exist_ok=True)
     (ROOT / "workspace").chmod(0o700)
     # Do not persist the actual token in the JSON config: it contains env SecretRefs.

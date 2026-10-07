@@ -76,6 +76,9 @@ class ConfigureTests(unittest.TestCase):
             self.assertEqual(env.stat().st_mode & 0o777, 0o600)
             config_path = project / ".state/openclaw/openclaw.json"
             self.assertEqual(config_path.stat().st_mode & 0o777, 0o600)
+            cache = project / ".state/openclaw/cache"
+            self.assertTrue(cache.is_dir())
+            self.assertEqual(cache.stat().st_mode & 0o777, 0o700)
             self.assertTrue((project / "workspace/files").is_dir())
             self.assertNotIn(self.values["DISCORD_BOT_TOKEN"], config_path.read_text())
             subprocess.run(command, check=True, capture_output=True)

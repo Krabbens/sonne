@@ -39,18 +39,20 @@ services:
       OPENCLAW_STATE_DIR: /home/node/.openclaw
       OPENCLAW_CONFIG_PATH: /home/node/.openclaw/openclaw.json
       OPENCLAW_CONFIG_DIR: /home/node/.openclaw
-      OPENCLAW_WORKSPACE_DIR: /home/node/.openclaw/workspace
+      OPENCLAW_WORKSPACE_DIR: /workspace
       OPENCLAW_GATEWAY_PORT: "18789"
       OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN:?Run scripts/configure.py}
       DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN:?Set DISCORD_BOT_TOKEN in .env}
+      NPM_CONFIG_CACHE: /home/node/.openclaw/npm-cache
       NODE_OPTIONS: --max-old-space-size=1024
       OPENCLAW_DISABLE_BONJOUR: "1"
       TZ: Europe/Warsaw
     volumes:
       - ./.state/openclaw:/home/node/.openclaw
-      - ./workspace:/home/node/.openclaw/workspace
-      - ./templates/workspace/SOUL.md:/home/node/.openclaw/workspace/SOUL.md:ro
-      - ./templates/workspace/AGENTS.md:/home/node/.openclaw/workspace/AGENTS.md:ro
+      - ./.state/openclaw/cache:/home/node/.cache
+      # Directory mounts avoid Docker Desktop VirtioFS nested-file mount failures.
+      - ./templates/workspace:/workspace:ro
+      - ./workspace/files:/workspace/files
     ports:
       - 127.0.0.1:18789:18789
     command: [node, dist/index.js, gateway, --bind, lan, --port, "18789"]
