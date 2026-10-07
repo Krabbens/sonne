@@ -7,6 +7,10 @@ using the pinned Linux amd64 image on an Apple Silicon host (emulation).
 
 ## Verified locally
 
+The current preset requests a 65,536-token (64k) context in both OpenClaw and
+Ollama. This is a configuration change; full-context inference and memory fit
+under the unchanged 4 GiB / 2 GiB caps have not been measured.
+
 - **OpenClaw 2026.9.8 CLI** reports commit `fc23bc8`.
 - Generated JSON validated with the actual pinned CLI using synthetic tokens and IDs.
 - Installed official **`@openclaw/discord@2026.9.8`** into isolated temporary state,

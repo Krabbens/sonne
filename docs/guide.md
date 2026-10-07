@@ -22,7 +22,7 @@ Inference stays on your computer. Discord carries messages and attachments and n
 | Ollama | 0.40.0, official Docker Hub image |
 | Multimodal model | qwen3.5:2b-q4_K_M |
 | Input / tools | Text + images; native tool calling |
-| Runtime budget | 16,384 context; 1,024 output tokens |
+| Runtime budget | 65,536 context; 1,024 output tokens |
 
 The model package is approximately 1.9 GB, including its vision components. This is a download size, not a RAM measurement. Avoid the bare `qwen3.5` tag: it selects a larger model. A 2B model has limited OCR, reasoning and tool reliability; verify the actual tasks you need. [Model card](https://ollama.com/library/qwen3.5:2b-q4_K_M).
 
@@ -238,10 +238,10 @@ Discord uses an outbound gateway connection. Do not expose port 18789 or Ollama'
 The provider uses `api: "ollama"` and `http://ollama:11434`, with no `/v1` suffix. OpenClaw's native Ollama adapter carries tool calls and image input. `input: ["text", "image"]` declares vision capability explicitly.
 
 ```json
-"contextTokens": 16384,
+"contextTokens": 65536,
 "maxTokens": 1024,
 "params": {
-  "num_ctx": 16384,
+  "num_ctx": 65536,
   "num_gpu": 0,
   "num_predict": 1024,
   "thinking": false,

@@ -315,8 +315,9 @@ cat workspace/files/smoke.txt
 \checkpoint{Tasks complete, no OOM kill or repeated restarts, available host RAM stays
 above 512 MiB, no continuous swap growth, and files survive restart. Record CPU,
 usable RAM, memory peaks and response times. If these fail, this host is not accepted.}
-The preset uses a 16,384-token context, 1,024-token output cap, no GPU, thinking
+The preset uses a 65,536-token context, 1,024-token output cap, no GPU, thinking
 off and serialized work. A 2B model can misread text or misuse tools; check real outputs.
+The 64k context increases memory demand; repeat this check under the existing caps.
 
 \vspace{4pt}\textbf{Routine commands}
 \begin{lstlisting}

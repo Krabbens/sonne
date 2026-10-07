@@ -89,7 +89,7 @@ to `127.0.0.1:18789` and requires the gateway token stored in your local `.env`.
 - Official external Discord plugin `@openclaw/discord@2026.9.8`, installed into
   persistent state before startup. `--force` confirms the npm source during this
   first installation; do not use it casually to overwrite a working plugin.
-- Native Ollama endpoint `http://ollama:11434`, 16,384-token context, 1,024-token
+- Native Ollama endpoint `http://ollama:11434`, 65,536-token context, 1,024-token
   output cap, `num_gpu: 0`, thinking off, one model and one turn at a time.
 - Hard memory caps of 4 GiB for Ollama and 2 GiB for OpenClaw. Equal memory/swap
   limits prevent these containers from using swap when the host supports the limits.
@@ -106,6 +106,8 @@ to `127.0.0.1:18789` and requires the gateway token stored in your local `.env`.
 The 1.9 GB download is not the RAM requirement. Context, vision processing,
 runtime allocations, Docker and the host also consume memory. The guide explains
 how to accept or reject the profile on your machine.
+The 64k context preset has not been measured on an 8 GB host; repeat the memory
+acceptance check under the existing container caps before relying on it.
 
 ## Change the prompt or access list
 
