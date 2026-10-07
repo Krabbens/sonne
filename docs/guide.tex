@@ -325,17 +325,6 @@ docker compose restart openclaw
 docker compose stop
 docker compose start
 \end{lstlisting}
-\textbf{Backup before updates} (includes secrets and conversations):
-\begin{lstlisting}
-docker compose stop
-umask 077
-tar -czf ../sonne-backup-$(date +%Y%m%d-%H%M%S).tgz \
-  .env .state workspace
-docker compose start
-\end{lstlisting}
-Keep the archive private. The model can be downloaded again. Do not run
-\texttt{docker compose down -v} unless deleting the model volume is intended.
-
 \textbf{If startup fails.} Check token, numeric IDs, Message Content Intent,
 channel permissions and an explicit mention. After editing \texttt{.env}, rerun
 \texttt{python3 scripts/configure.py} and recreate OpenClaw. For unfinished
@@ -343,14 +332,4 @@ plugin migrations, inspect \texttt{node dist/index.js update status --json}
 with the same \texttt{docker compose run --rm --no-deps openclaw} prefix as step 10.
 For Docker Desktop mount errors, update the checkout and follow README's mount check.
 
-\textbf{Evidence and sources.} Configuration, plugin installation in fresh state
-and container mounts were checked locally; fresh Ubuntu installation, live
-Discord inference and 8 GB whole-host fit remain unverified. Full records:
-\href{https://github.com/Krabbens/sonne/blob/main/docs/validation.md}{validation record}
-and \href{https://github.com/Krabbens/sonne/blob/main/docs/versions.json}{image versions}.
-Primary references:
-\href{https://docs.docker.com/engine/install/ubuntu/}{Docker installation};
-\href{https://github.com/openclaw/openclaw/tree/v2026.9.8/docs}{OpenClaw 2026.9.8 documentation};
-\href{https://ollama.com/library/qwen3.5:2b-q4_K_M}{model card};
-\href{https://docs.ollama.com/docker}{Ollama Docker}.
 \end{document}
