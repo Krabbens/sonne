@@ -24,10 +24,16 @@ Deployment target: **Ubuntu 24.04 LTS / Linux amd64 / CPU only / 8 GB total RAM*
   IDs, secret references, private file permissions, preservation of the generated
   gateway token on rerun, and leaving state untouched after incomplete input.
   Environment values are parsed as data rather than executed as shell text.
-- **8-page PDF** generated with ReportLab 4.4.9, text extracted with pypdf, and
+- **10-page PDF, revision 2** generated with ReportLab 4.4.9, text extracted with pypdf, and
   every page rendered with Poppler and visually reviewed. Code remains selectable;
-  14 link annotations are present. Text geometry was also inspected for footer
+  clickable source links are present. Text geometry was also inspected for footer
   clearance; the final layout has no clipped code or overlapping content.
+- Revision 2 adds complete host-tool installation for fresh Ubuntu 24.04 amd64:
+  Git, Python, editor, download/certificate support, monitoring tools, SSH client,
+  Docker Engine and Compose. Docker repository and post-installation steps were
+  checked against official Docker documentation; private-repository token access
+  was checked against official GitHub documentation. Bash code blocks passed
+  syntax checks. Host apt installation and `hello-world` were not executed here.
 
 ## Commands used
 
@@ -60,13 +66,15 @@ connection was started. The target Linux host and a real bot token were not
 provided. Therefore none of these is claimed as passing:
 
 - Container activation, startup migrations, health and readiness.
+- Ubuntu package installation, Docker service setup, group membership and
+  `hello-world` on a fresh Linux host.
 - CPU text/vision inference or model tool-call reliability.
 - Discord delivery, live user/channel restrictions and file actions.
 - Filesystem escape refusal or read-only mount behavior at runtime.
 - Persistence after a real container restart.
 - Peak process/host memory, absence of swapping, or response speed on 8 GB.
 
-Follow guide pages 5 and 6 on the target host. A passing schema and a 1.9 GB model
+Follow guide pages 7 and 8 on the target host. A passing schema and a 1.9 GB model
 download do **not** establish whole-agent RAM fit or tool reliability. If the
 profile fails, keep that outcome in the deployment record instead of treating
 unmeasured hardware compatibility as guaranteed.

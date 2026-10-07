@@ -3,9 +3,10 @@
 OpenClaw + Ollama + Qwen3.5 2B Q4_K_M, served through a restricted Discord channel.
 CPU only, targeting a **Linux amd64 host with 8 GB total RAM**.
 
-**Read the [8-page English deployment guide](output/pdf/sonne-openclaw-cpu-8gb.pdf)**
-or its [Markdown source](docs/guide.md). It contains setup, the system prompt,
-acceptance checks, memory measurement, maintenance and troubleshooting.
+**Read the [10-page English deployment guide](output/pdf/sonne-openclaw-cpu-8gb.pdf)**
+or its [Markdown source](docs/guide.md). It starts with host-tool installation on
+a fresh Ubuntu system, then covers Docker, repository access, bot setup, the
+system prompt, acceptance checks, memory measurement and maintenance.
 
 This is a documented deployment profile, **not a measured 8 GB benchmark**.
 OpenClaw 2026.9.8 configuration validation and static checks are verified locally.
@@ -14,22 +15,33 @@ target Linux host and your own bot token. See [validation status](docs/validatio
 
 ## Prerequisites
 
-- Ubuntu 24.04 LTS, Intel/AMD x86-64, a normal non-root Linux user.
-- Working Docker Engine and Compose v2 or newer, Git and Python 3.
+- An installed Ubuntu 24.04 LTS system, Intel/AMD x86-64, and a normal non-root
+  Linux user with sudo access. Docker, Git and Python installation is included.
 - An otherwise lightly loaded 8 GB machine; approximately 15 GB free disk as an
   initial allowance for images, the model, state and updates. Check actual disk use.
 - A Discord application, one server/channel, and numeric IDs for allowed users.
 - Internet for initial downloads and Discord. Model inference is local; messages
   and attachments are transported by Discord.
 
-## Quick start
+## Install the host tools first
 
-Authenticate Git with your GitHub account or SSH key first; this repository is private.
-Do not put GitHub credentials in the bot's environment.
+Follow guide [section 2](docs/guide.md#2-install-the-host-tools-and-docker) on the
+Ubuntu host. It installs Git, Python 3, nano, curl, certificate support, the
+memory-monitoring utilities, ripgrep and the SSH client, then configures Docker's
+official apt repository and installs Docker Engine with the Compose plugin.
+
+Then follow [section 3](docs/guide.md#3-verify-docker-and-download-sonne) to grant
+the trusted operator Docker access, log out and back in, run `hello-world`, and
+download this private repository using a read-only GitHub token. No separate
+host installation of Node.js, npm, OpenClaw or Ollama is needed.
+
+## Quick start after host installation
+
+Start in the checkout created by guide section 3. The guide also explains how to
+create the Discord bot and obtain its IDs and token before filling `.env`.
 
 ```bash
-git clone https://github.com/Krabbens/sonne.git
-cd sonne
+cd ~/agents/sonne
 cp .env.example .env
 nano .env
 python3 scripts/configure.py

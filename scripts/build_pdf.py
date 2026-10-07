@@ -213,7 +213,7 @@ def decorate(canvas, doc):
     canvas.setFont("Helvetica", 7.2)
     canvas.drawRightString(A4[0] - 44, A4[1] - 27, "OPENCLAW / LOCAL CPU / DISCORD")
     canvas.line(44, 34, A4[0] - 44, 34)
-    canvas.drawString(44, 22, "Krabbens/sonne  |  7 October 2026  |  Revision 1")
+    canvas.drawString(44, 22, "Krabbens/sonne  |  7 October 2026  |  Revision 2")
     canvas.drawRightString(A4[0] - 44, 22, f"{doc.page}")
     canvas.restoreState()
 
@@ -252,8 +252,8 @@ def main():
         author="Krabbens", subject="Docker, local multimodal model, Discord and system prompt",
     )
     doc.build(parse_markdown(source), onFirstPage=decorate, onLaterPages=decorate)
-    if doc.page != 8:
-        raise ValueError(f"Expected 8 pages; got {doc.page}. Adjust guide layout before delivery.")
+    if doc.page != 10:
+        raise ValueError(f"Expected 10 pages; got {doc.page}. Adjust guide layout before delivery.")
     make_fixture()
     print(OUTPUT)
 

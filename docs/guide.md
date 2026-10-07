@@ -1,10 +1,10 @@
 # OpenClaw on an 8 GB CPU host
 
-Sonne / Technical deployment guide / 7 October 2026 / Revision 1
+Sonne / Technical deployment guide / 7 October 2026 / Revision 2
 
 ## 1. Deployment profile
 
-Run one small, multimodal OpenClaw agent on **Ubuntu 24.04 LTS, amd64, 8 GB total RAM, no GPU**. Docker Engine and Compose v2 or newer must already work. Use a normal Linux user, Git and Python 3. Allow roughly 15 GB free disk initially and check actual usage after pulling images.
+Run one small, multimodal OpenClaw agent on **Ubuntu 24.04 LTS, amd64, 8 GB total RAM, no GPU**. Start with an installed Ubuntu system and a normal user with sudo access. Pages 2 and 3 install the host tools and Docker, test them, and download this private repository. Allow roughly 15 GB free disk initially and check actual usage after pulling images.
 
 The agent understands text, photos and screenshots, and reads or writes small text files. One Discord channel serves several explicitly allowed users. They share the channel conversation and the same files. Audio, video and shell execution are outside this profile.
 
@@ -24,11 +24,103 @@ Inference stays on your computer. Discord carries messages and attachments and n
 
 The model package is approximately 1.9 GB, including its vision components. This is a download size, not a RAM measurement. Avoid the bare `qwen3.5` tag: it selects a larger model. A 2B model has limited OCR, reasoning and tool reliability; verify the actual tasks you need. [Model card](https://ollama.com/library/qwen3.5:2b-q4_K_M).
 
-> Validation boundary: configuration has been checked against OpenClaw 2026.9.8. CPU inference, Discord delivery and whole-host memory fit have not been measured here. Page 6 defines the target-host acceptance check.
+> Validation boundary: configuration has been checked against OpenClaw 2026.9.8. CPU inference, Discord delivery and whole-host memory fit have not been measured here. Page 8 defines the target-host acceptance check.
 
 <!-- page -->
 
-## 2. Create the Discord bot and local config
+## 2. Install the host tools and Docker
+
+Use a terminal on the Ubuntu host as your normal user, not a root login. Commands marked `sudo` ask for that user's Linux password. Copy code blocks in order; stop if a command fails. First check the OS, architecture, available memory and disk:
+
+```bash
+cat /etc/os-release
+dpkg --print-architecture
+free -h
+df -h "$HOME"
+```
+
+Require Ubuntu **24.04** and **amd64**. The Docker repository below is specifically for that combination. On a fresh host without an existing container runtime, install the utilities used throughout this guide:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y ca-certificates curl git nano \
+  python3 python3-venv procps ripgrep openssh-client
+```
+
+Git downloads the project; Python generates config; nano edits files. `procps` supplies `free` and `vmstat`, ripgrep supplies `rg`, and the SSH client supports the optional admin tunnel. `python3-venv` is used only if you rebuild the PDF.
+
+### Add Docker's official package repository
+
+If this host already runs Docker, containerd or Podman, first check the [official installation and package-conflict instructions](https://docs.docker.com/engine/install/ubuntu/). Do not remove a runtime serving other workloads. A working Docker Engine with the Compose plugin can proceed to page 3's checks.
+
+```bash
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
+  -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+sudo tee /etc/apt/sources.list.d/docker.sources >/dev/null <<'EOF'
+Types: deb
+URIs: https://download.docker.com/linux/ubuntu
+Suites: noble
+Components: stable
+Architectures: amd64
+Signed-By: /etc/apt/keyrings/docker.asc
+EOF
+sudo apt-get update
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io \
+  docker-buildx-plugin docker-compose-plugin
+sudo systemctl enable --now docker
+```
+
+This installs the stable Docker Engine and its Compose plugin. Use `docker compose` with a space in all later commands.
+
+<!-- page -->
+
+## 3. Verify Docker and download Sonne
+
+### Enable Docker for the deployment user
+
+Add only the trusted operator account. Docker group membership grants administrative control over the host; it is unrelated to the Discord user allowlist. See [Docker's Linux post-installation guide](https://docs.docker.com/engine/install/linux-postinstall/).
+
+```bash
+sudo groupadd -f docker
+sudo usermod -aG docker "$(id -un)"
+```
+
+**Log out of Ubuntu completely and log back in**, or disconnect and reconnect your SSH session. Opening another terminal in the same desktop session is insufficient. Then run these commands without sudo:
+
+```bash
+id -nG
+docker version
+docker compose version
+docker run --rm hello-world
+git --version
+python3 --version
+command -v curl nano rg vmstat ssh
+```
+
+Require `docker` in the group list, Docker Client and Server versions without connection errors, Compose **v2 or newer**, and the **Hello from Docker!** message. Every utility in the last command must print a path. If Docker access is denied, repeat the logout/login step; if the daemon is inactive, run `sudo systemctl start docker` and retry. Do not continue until these checks pass.
+
+### Access the private GitHub repository
+
+Use the repository-owning GitHub account, **Krabbens**. In a browser, open GitHub Settings > Developer settings > Personal access tokens > Fine-grained tokens > Generate new token. Set an expiry, select resource owner Krabbens, choose **Only select repositories > sonne**, and grant **Contents: Read-only**. Generate the token. [GitHub token instructions](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens).
+
+```bash
+mkdir -p ~/agents
+cd ~/agents
+git -c credential.helper= clone https://github.com/Krabbens/sonne.git
+cd sonne
+```
+
+At Git's Username prompt enter `Krabbens`; at Password paste the token, not your GitHub password. The password prompt does not display typing. The empty credential helper prevents this command from saving the token. Keep it out of the clone URL, shell commands and `.env`. Later pulls may ask again. If Git reports Repository not found, check the account, selected repository, token permissions and expiry.
+
+### What runs inside Docker
+
+No host installation of Node.js, npm, OpenClaw or Ollama is needed. Page 5 pulls their container images, installs the pinned Discord plugin inside the OpenClaw container, and downloads the model into a Docker volume. PDF authoring packages are optional; their installation is shown on page 10.
+
+<!-- page -->
+
+## 4. Create the Discord bot and local config
 
 ### Discord application
 
@@ -39,18 +131,17 @@ The model package is approximately 1.9 GB, including its vision components. This
 5. Make one text channel accessible only to the intended group and the bot. This guide uses a normal channel, not threads or voice.
 6. Enable Discord Developer Mode. Copy the Application ID, Server ID, Channel ID and each allowed User ID. Right-click the relevant server, channel or user to copy its ID.
 
-### Clone and fill the environment
+### Fill the local environment
 
-The repository is private. Authenticate Git with your GitHub account or an SSH key on the host first, then run:
+The repository was downloaded on page 3. From your normal user account, run:
 
 ```bash
-git clone https://github.com/Krabbens/sonne.git
-cd sonne
+cd ~/agents/sonne
 cp .env.example .env
 nano .env
 ```
 
-Replace the five Discord settings. User IDs are comma-separated, without spaces. Leave gateway token and local UID/GID blank; the configuration script fills them. Do not change the pinned image settings during initial setup.
+Replace the five Discord settings. In nano, save with Ctrl+O and Enter, then exit with Ctrl+X. User IDs are comma-separated, without spaces. Leave gateway token and local UID/GID blank; the configuration script fills them. Do not change the pinned image settings during initial setup.
 
 ```text
 DISCORD_BOT_TOKEN=your-real-bot-token
@@ -69,7 +160,7 @@ The generator checks numeric IDs, creates `.state/openclaw/openclaw.json` and `w
 
 <!-- page -->
 
-## 3. Pull, validate and start
+## 5. Pull, validate and start
 
 Run all commands from the repository root. This flow uses pre-built images; it does not build OpenClaw on the 8 GB host. The full upstream Compose setup script is unnecessary for this supplied two-service configuration.
 
@@ -104,7 +195,7 @@ Expect a successful completion containing `sonne-ok`. This lean probe checks pro
 
 ### Verify Discord and optional administration
 
-From an allowed user account, send `@Sonne Reply with exactly: sonne-ok` in the allowed channel. Require a visible reply. Then test an image and file actions as described on page 5.
+From an allowed user account, send `@Sonne Reply with exactly: sonne-ok` in the allowed channel. Require a visible reply. Then test an image and file actions as described on page 7.
 
 ```bash
 docker compose logs --tail=100 openclaw
@@ -130,7 +221,7 @@ Discord uses an outbound gateway connection. Do not expose port 18789 or Ollama'
 
 <!-- page -->
 
-## 4. Model settings and the system prompt
+## 6. Model settings and the system prompt
 
 ### Settings that keep this profile small
 
@@ -179,7 +270,7 @@ For other configuration changes, edit `templates/openclaw.json`, rerun `python3 
 
 <!-- page -->
 
-## 5. Functional acceptance checks
+## 7. Functional acceptance checks
 
 Use the allowed Discord channel, mention the bot, and wait for each request to finish. Run these checks with disposable test files before trusting the agent with useful work. A model reply claiming success is not sufficient evidence of a file change.
 
@@ -228,7 +319,7 @@ Require the file and model download to survive the restart. Send another Discord
 
 <!-- page -->
 
-## 6. Whole-host memory and data
+## 8. Whole-host memory and data
 
 ### Memory budget, not a performance guarantee
 
@@ -240,7 +331,7 @@ Require the file and model download to survive the restart. Send another Discord
 
 Docker's `4g` and `2g` limits use binary units. An "8 GB" machine's actual usable memory may be lower; inspect `free -h`. The caps leave roughly 2 GiB on an 8 GiB host, but do not prove that either process fits its allocation. Equal `mem_limit` and `memswap_limit` disable container swap where supported. Node's 1 GiB old-space limit is only a heap limit, not total process RAM.
 
-In separate terminals, observe the host while running page 5's tests. Include a cold model load, an image turn, file tools and a short sequence of requests from two users:
+In separate terminals, observe the host while running page 7's tests. Include a cold model load, an image turn, file tools and a short sequence of requests from two users:
 
 ```bash
 free -h
@@ -257,7 +348,7 @@ docker inspect $(docker compose ps -aq) \
 sudo journalctl -k --since '15 minutes ago' | rg -i 'oom|out of memory'
 ```
 
-If `rg` is not installed, use `grep -Ei 'oom|out of memory'` for the last command. Accept only if tasks complete, neither container is OOM-killed or repeatedly restarting, available host RAM stays above 512 MiB during the sample, and swap is not continuously growing. Record CPU, usable RAM, peaks and response times. Without those measurements, RAM fit remains unverified.
+Accept only if tasks complete, neither container is OOM-killed or repeatedly restarting, available host RAM stays above 512 MiB during the sample, and swap is not continuously growing. Record CPU, usable RAM, peaks and response times. Without those measurements, RAM fit remains unverified.
 
 ### Stored data and backup
 
@@ -277,7 +368,7 @@ For restore, stop the stack, extract a trusted backup into the same checkout, pr
 
 <!-- page -->
 
-## 7. Maintenance and troubleshooting
+## 9. Maintenance and troubleshooting
 
 ### Routine operations and deliberate upgrades
 
@@ -318,7 +409,7 @@ To roll back, restore the previous image setting and compatible state backup wit
 
 <!-- page -->
 
-## 8. Validation record and references
+## 10. Validation record and references
 
 ### What was checked for this release
 
@@ -328,12 +419,12 @@ Image manifests were checked for Linux amd64 availability. The supplied PDF was 
 
 | Verification | Status |
 | --- | --- |
+| Ubuntu tools, Docker install, hello-world | Instructions checked; not run on Linux |
 | Generator tests, Compose, OpenClaw schema | Checked locally; see validation record |
 | Official image manifests, Linux amd64 | Checked; image tags recorded |
-| PDF layout and selectable text | Rendered and reviewed |
 | Container startup and live model inference | Not run: Docker daemon unavailable |
 | Discord image/file delivery and access checks | Requires your bot and target host |
-| Whole-host 8 GB RAM / CPU performance | Not measured; use page 6 |
+| Whole-host 8 GB RAM / CPU performance | Not measured; use page 8 |
 
 Do not treat a raw model smoke test as proof of an agent turn: the latter adds system instructions, tools, history, images and possibly multiple model requests. Keep the prompt short, test representative tasks, and preserve the distinction between configuration validation and a live result.
 
