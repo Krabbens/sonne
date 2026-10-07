@@ -239,27 +239,24 @@ docker compose logs --tail=100 ollama
 
 \newpage
 \pageheading{Set the prompt and test useful work}
-\step{Customize the supplied instructions}
-The repository already includes an English persona in \texttt{SOUL.md} and
-file-handling rules in \texttt{AGENTS.md}. Edit the host copies:
+\step{Fill in your agent instructions}
+Replace the placeholders in \texttt{SOUL.md} and \texttt{AGENTS.md} with your own
+persona and working rules. Edit the host copies:
 \begin{lstlisting}
 nano templates/workspace/SOUL.md
 nano templates/workspace/AGENTS.md
 \end{lstlisting}
-The supplied persona begins:
+\texttt{SOUL.md}:
 \begin{lstlisting}
-You are Sonne, a practical assistant for understanding images and
-working with small text files. Reply in the user's language.
-Keep answers concise and concrete.
-
-Describe what is visible in an image, including relevant text.
-Distinguish observations from guesses. If text is unreadable,
-ask for a closer crop. Never claim to see an image that was not
-provided or successfully loaded.
+[INSERT YOUR AGENT PERSONA AND RESPONSE INSTRUCTIONS HERE]
 \end{lstlisting}
-Keep the rules requiring real tool results, workspace-only file access and
-confirmation before overwriting. These files supplement OpenClaw's internal
-system prompt. Apply your changes:
+\texttt{AGENTS.md}:
+\begin{lstlisting}
+[INSERT YOUR AGENT WORKING RULES HERE]
+\end{lstlisting}
+Define file-handling, image interpretation and overwrite-confirmation rules
+for your intended use. These files supplement OpenClaw's internal system prompt.
+Apply your changes:
 \begin{lstlisting}
 docker compose up -d --force-recreate openclaw
 \end{lstlisting}

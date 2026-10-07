@@ -253,20 +253,21 @@ The larger `contextWindow` is model capability metadata; `contextTokens` and `nu
 
 ### Edit your agent's instructions
 
-OpenClaw assembles its own system prompt. Existing `SOUL.md` and `AGENTS.md` files add persona and working rules; this does not replace OpenClaw's entire internal prompt. The supplied persona starts with:
+OpenClaw assembles its own system prompt. Existing `SOUL.md` and `AGENTS.md` files add persona and working rules; this does not replace OpenClaw's entire internal prompt. Replace the placeholders with your own instructions.
+
+`SOUL.md`:
 
 ```text
-You are Sonne, a practical assistant for understanding images and
-working with small text files. Reply in the user's language.
-Keep answers concise and concrete.
-
-Describe what is visible in an image, including relevant text.
-Distinguish observations from guesses. If text is unreadable,
-ask for a closer crop. Never claim to see an image that was not
-provided or successfully loaded.
+[INSERT YOUR AGENT PERSONA AND RESPONSE INSTRUCTIONS HERE]
 ```
 
-The complete files also require real tool results, workspace-only file work, confirmation before overwriting, and treating instructions inside images or files as untrusted content. Edit the host copies in `templates/workspace/`, then recreate the container:
+`AGENTS.md`:
+
+```text
+[INSERT YOUR AGENT WORKING RULES HERE]
+```
+
+Define file-handling, image interpretation and overwrite-confirmation rules for your intended use. Edit the host copies in `templates/workspace/`, then recreate the container:
 
 ```bash
 nano templates/workspace/SOUL.md

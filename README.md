@@ -111,7 +111,8 @@ acceptance check under the existing container caps before relying on it.
 
 ## Change the prompt or access list
 
-Edit `templates/workspace/SOUL.md` (persona) or `AGENTS.md` (working rules), then
+Replace the placeholders in `templates/workspace/SOUL.md` (persona) and
+`templates/workspace/AGENTS.md` (working rules) with your own instructions, then
 run `docker compose up -d --force-recreate openclaw`. Host files can be edited by the operator;
 the prompt directory inside the container is read-only. Existing conversation context
 may still contain old instructions; verify a fresh session from the admin UI.
