@@ -137,7 +137,12 @@ Use your own Discord account and a server where you can add bots. You will creat
 1. Open the [Discord Developer Portal](https://discord.com/developers/applications), create an application named Sonne, and open its Bot page.
 2. Enable **Message Content Intent**. This profile uses explicit numeric user IDs, so Server Members, Presence and voice intents are disabled in OpenClaw and are unnecessary here.
 3. Generate the bot token on the Bot page. Keep it on the deployment machine; never paste it in Discord, Git or an issue.
-4. In OAuth2 URL Generator select `bot` and `applications.commands`. Grant View Channels, Send Messages, Read Message History, Embed Links and Attach Files. Do not grant Administrator. Invite the bot to your server.
+4. In OAuth2 URL Generator select `bot` and `applications.commands`. In **Bot Permissions**, enable:
+   - **General:** Create Expressions; View Channels; Create Events.
+   - **Text:** Send Messages; Create Public Threads; Send Messages in Threads; Send TTS Messages; Pin Messages; Embed Links; Attach Files; Read Message History; Mention Everyone; Use External Emojis; Use External Stickers; Add Reactions; Use Slash Commands; Use External Apps; Create Polls; Bypass Slowmode; Send Voice Messages.
+   - **Voice:** Set Voice Channel Status.
+
+   Leave all other permissions unchecked, including **Administrator**. Open the generated invitation URL and invite the bot to your server.
 5. Make one text channel accessible only to the intended group and the bot. This guide uses a normal channel, not threads or voice.
 6. Enable Discord Developer Mode. Copy the Application ID, Server ID, Channel ID and each allowed User ID. Right-click the relevant server, channel or user to copy its ID.
 

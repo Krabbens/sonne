@@ -136,8 +136,17 @@ Leave Server Members and Presence intents disabled.
 \item Generate or reset the bot token. Keep it for step 8; do not publish it.
 \item Open \textbf{OAuth2 / URL Generator}. Select scopes \texttt{bot} and
 \texttt{applications.commands}.
-\item Grant \textbf{View Channels, Send Messages, Read Message History,
-Embed Links} and \textbf{Attach Files}. Do not grant Administrator.
+\item In \textbf{Bot Permissions}, enable the following:
+\begin{itemize}[leftmargin=*,itemsep=2pt,topsep=2pt]
+\item \textbf{General:} Create Expressions; View Channels; Create Events.
+\item \textbf{Text:} Send Messages; Create Public Threads; Send Messages in
+Threads; Send TTS Messages; Pin Messages; Embed Links; Attach Files; Read
+Message History; Mention Everyone; Use External Emojis; Use External Stickers;
+Add Reactions; Use Slash Commands; Use External Apps; Create Polls;
+Bypass Slowmode; Send Voice Messages.
+\item \textbf{Voice:} Set Voice Channel Status.
+\end{itemize}
+Leave all other permissions unchecked, including \textbf{Administrator}.
 \item Open the generated invitation URL, choose your server, and authorize the bot.
 \item Create one ordinary text channel accessible to the bot and intended users.
 \end{enumerate}
