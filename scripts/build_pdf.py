@@ -213,7 +213,7 @@ def decorate(canvas, doc):
     canvas.setFont("Helvetica", 7.2)
     canvas.drawRightString(A4[0] - 44, A4[1] - 27, "OPENCLAW / LOCAL CPU / DISCORD")
     canvas.line(44, 34, A4[0] - 44, 34)
-    canvas.drawString(44, 22, "Krabbens/sonne  |  7 October 2026  |  Revision 3")
+    canvas.drawString(44, 22, "Sonne deployment guide  |  7 October 2026  |  Revision 4")
     canvas.drawRightString(A4[0] - 44, 22, f"{doc.page}")
     canvas.restoreState()
 
@@ -249,7 +249,7 @@ def main():
         str(OUTPUT), pagesize=A4, leftMargin=44, rightMargin=44,
         topMargin=53, bottomMargin=47,
         title="Sonne: OpenClaw on an 8 GB CPU host",
-        author="Krabbens", subject="Docker, local multimodal model, Discord and system prompt",
+        author="Sonne contributors", subject="Docker, local multimodal model, Discord and system prompt",
     )
     doc.build(parse_markdown(source), onFirstPage=decorate, onLaterPages=decorate)
     if doc.page != 10:

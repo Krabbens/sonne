@@ -27,16 +27,18 @@ using the pinned Linux amd64 image on an Apple Silicon host (emulation).
   IDs, secret references, private file permissions, preservation of the generated
   gateway token on rerun, and leaving state untouched after incomplete input.
   Environment values are parsed as data rather than executed as shell text.
-- **10-page PDF, revision 3** generated with ReportLab 4.4.9, text extracted with pypdf, and
+- **10-page PDF, revision 4** generated with ReportLab 4.4.9, text extracted with pypdf, and
   every page rendered with Poppler and visually reviewed. Code remains selectable;
   clickable source links are present. Text geometry was also inspected for footer
   clearance; the final layout has no clipped code or overlapping content.
 - Revision 2 adds complete host-tool installation for fresh Ubuntu 24.04 amd64:
   Git, Python, editor, download/certificate support, monitoring tools, SSH client,
   Docker Engine and Compose. Docker repository and post-installation steps were
-  checked against official Docker documentation; private-repository token access
-  was checked against official GitHub documentation. Bash code blocks passed
+  checked against official Docker documentation. Bash code blocks passed
   syntax checks. Host apt installation and `hello-world` were not executed here.
+- Revision 4 targets any user of the public project: ordinary HTTPS cloning,
+  no GitHub login or token, user-relative paths and a user's own Discord setup.
+  The public repository visibility and anonymous download were checked.
 - Reproduced the original nested file-bind `mountpoint ... is outside of rootfs`
   failure in a disposable Compose project using the real pinned OpenClaw image.
   The revision 3 directory-mount layout starts successfully on the same Docker
@@ -88,6 +90,8 @@ was used in validation. The 8 GB Linux target was not provided. None of the
 following is claimed as passing:
 
 - Full gateway startup, migrations, health and readiness.
+- Recovery of every pre-existing failed plugin migration; fresh-state plugin
+  installation and schema checks do not establish that recovery path.
 - Ubuntu package installation, Docker service setup, group membership and
   `hello-world` on a fresh Linux host.
 - CPU text/vision inference or model tool-call reliability.

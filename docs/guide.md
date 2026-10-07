@@ -1,10 +1,10 @@
 # OpenClaw on an 8 GB CPU host
 
-Sonne / Technical deployment guide / 7 October 2026 / Revision 3
+Sonne / Technical deployment guide / 7 October 2026 / Revision 4
 
 ## 1. Deployment profile
 
-Run one small, multimodal OpenClaw agent on **Ubuntu 24.04 LTS, amd64, 8 GB total RAM, no GPU**. Start with an installed Ubuntu system and a normal user with sudo access. Pages 2 and 3 install the host tools and Docker, test them, and download this private repository. Allow roughly 15 GB free disk initially and check actual usage after pulling images.
+Run one small, multimodal OpenClaw agent on **Ubuntu 24.04 LTS, amd64, 8 GB total RAM, no GPU**. Start with an installed Ubuntu system and your own normal user account with sudo access. Pages 2 and 3 install the tools and Docker, test them, and download the public project. No GitHub account is required. Allow roughly 15 GB free disk initially and check usage after pulling images.
 
 The agent understands text, photos and screenshots, and reads or writes small text files. One Discord channel serves several explicitly allowed users. They share the channel conversation and the same files. Audio, video and shell execution are outside this profile.
 
@@ -30,7 +30,7 @@ The model package is approximately 1.9 GB, including its vision components. This
 
 ## 2. Install the host tools and Docker
 
-Use a terminal on the Ubuntu host as your normal user, not a root login. Commands marked `sudo` ask for that user's Linux password. Copy code blocks in order; stop if a command fails. First check the OS, architecture, available memory and disk:
+Open a terminal on your Ubuntu computer and use your normal user account. Commands marked `sudo` ask for your Linux password. Copy code blocks in order; stop if a command fails. A backslash at the end of a line continues the command on the next line, so keep line breaks when copying. First check the system:
 
 ```bash
 cat /etc/os-release
@@ -101,18 +101,24 @@ command -v curl nano rg vmstat ssh
 
 Require `docker` in the group list, Docker Client and Server versions without connection errors, Compose **v2 or newer**, and the **Hello from Docker!** message. Every utility in the last command must print a path. If Docker access is denied, repeat the logout/login step; if the daemon is inactive, run `sudo systemctl start docker` and retry. Do not continue until these checks pass.
 
-### Access the private GitHub repository
+### Download the public project
 
-Use the repository-owning GitHub account, **Krabbens**. In a browser, open GitHub Settings > Developer settings > Personal access tokens > Fine-grained tokens > Generate new token. Set an expiry, select resource owner Krabbens, choose **Only select repositories > sonne**, and grant **Contents: Read-only**. Generate the token. [GitHub token instructions](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens).
+Anyone can download Sonne. You do not need a GitHub account, access token or SSH key. Run these commands as your own Linux user to put the project in `~/agents/sonne`:
 
 ```bash
 mkdir -p ~/agents
 cd ~/agents
-git -c credential.helper= clone https://github.com/Krabbens/sonne.git
+git clone https://github.com/Krabbens/sonne.git
 cd sonne
 ```
 
-At Git's Username prompt enter `Krabbens`; at Password paste the token, not your GitHub password. The password prompt does not display typing. The empty credential helper prevents this command from saving the token. Keep it out of the clone URL, shell commands and `.env`. Later pulls may ask again. If Git reports Repository not found, check the account, selected repository, token permissions and expiry.
+`~` means your home directory; it works with any Linux username. The account name in the download URL identifies the project publisher, not an account you must log into. Check that the project files are present:
+
+```bash
+ls compose.yaml .env.example scripts/configure.py
+```
+
+Keep using this folder for the later commands. If you open a new terminal, run `cd ~/agents/sonne` first. If you choose a different folder, use that path instead. An existing download can be updated from inside its folder with `git pull --ff-only`.
 
 ### What runs inside Docker
 
@@ -123,6 +129,8 @@ No host installation of Node.js, npm, OpenClaw or Ollama is needed. Page 5 pulls
 ## 4. Create the Discord bot and local config
 
 ### Discord application
+
+Use your own Discord account and a server where you can add bots. You will create your own application, token and access list; the project does not supply a shared bot account.
 
 1. Open the [Discord Developer Portal](https://discord.com/developers/applications), create an application named Sonne, and open its Bot page.
 2. Enable **Message Content Intent**. This profile uses explicit numeric user IDs, so Server Members, Presence and voice intents are disabled in OpenClaw and are unnecessary here.
@@ -141,7 +149,7 @@ cp .env.example .env
 nano .env
 ```
 
-Replace the five Discord settings. In nano, save with Ctrl+O and Enter, then exit with Ctrl+X. User IDs are comma-separated, without spaces. Leave gateway token and local UID/GID blank; the configuration script fills them. Do not change the pinned image settings during initial setup.
+Replace the five Discord settings with your own token and IDs; the digits below are examples only. In nano, save with Ctrl+O and Enter, then exit with Ctrl+X. User IDs are comma-separated, without spaces. Leave gateway token and local UID/GID blank; the configuration script fills them. Keep the pinned image settings for initial setup.
 
 ```text
 DISCORD_BOT_TOKEN=your-real-bot-token
@@ -162,7 +170,7 @@ The generator checks numeric IDs, creates `.state/openclaw/openclaw.json` and `w
 
 ## 5. Pull, validate and start
 
-Run all commands from the repository root. This flow uses pre-built images; it does not build OpenClaw on the 8 GB host. The full upstream Compose setup script is unnecessary for this supplied two-service configuration.
+Run these commands in order from the project folder. They download pre-built containers and the model, install the Discord plugin, then start the services. Keep the line breaks when copying.
 
 ```bash
 docker compose pull
@@ -407,7 +415,7 @@ To roll back, restore the previous image setting and compatible state backup wit
 
 **Permission denied on user files.** Regenerate local UID/GID as the owning normal Linux user. Check ownership of `.state/` and `workspace/`; repair only these project directories if a previous root-run setup created them. Prompt files are intentionally read-only inside the container.
 
-**Docker Desktop: mountpoint is outside of rootfs.** Update with `git pull --ff-only`, regenerate config, and recreate OpenClaw. Revision 3 uses directory mounts to avoid the [VirtioFS nested file-bind failure](https://github.com/docker/desktop-feedback/issues/420). Run the container mount check in README before repeating the plugin installation if it failed earlier. Keep the existing model volume.
+**Docker Desktop: mountpoint is outside of rootfs.** Update with `git pull --ff-only`, regenerate config, and recreate OpenClaw. The current configuration uses directory mounts to avoid the [VirtioFS nested file-bind failure](https://github.com/docker/desktop-feedback/issues/420). Run the container mount check in README before repeating the plugin installation if it failed earlier. Keep the existing model volume. For pending plugin migration warnings, see README's diagnostic command.
 
 <!-- page -->
 

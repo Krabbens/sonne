@@ -5,7 +5,7 @@ CPU only, targeting a **Linux amd64 host with 8 GB total RAM**.
 
 **Read the [10-page English deployment guide](output/pdf/sonne-openclaw-cpu-8gb.pdf)**
 or its [Markdown source](docs/guide.md). It starts with host-tool installation on
-a fresh Ubuntu system, then covers Docker, repository access, bot setup, the
+a fresh Ubuntu system, then covers Docker, downloading the project, bot setup, the
 system prompt, acceptance checks, memory measurement and maintenance.
 
 This is a documented deployment profile, **not a measured 8 GB benchmark**.
@@ -20,7 +20,8 @@ and your own bot token. See [validation status](docs/validation.md).
   Linux user with sudo access. Docker, Git and Python installation is included.
 - An otherwise lightly loaded 8 GB machine; approximately 15 GB free disk as an
   initial allowance for images, the model, state and updates. Check actual disk use.
-- A Discord application, one server/channel, and numeric IDs for allowed users.
+- Your own Discord account and a server where you can add a bot. The guide
+  explains how to create the application and collect the required IDs.
 - Internet for initial downloads and Discord. Model inference is local; messages
   and attachments are transported by Discord.
 
@@ -33,13 +34,30 @@ official apt repository and installs Docker Engine with the Compose plugin.
 
 Then follow [section 3](docs/guide.md#3-verify-docker-and-download-sonne) to grant
 the trusted operator Docker access, log out and back in, run `hello-world`, and
-download this private repository using a read-only GitHub token. No separate
-host installation of Node.js, npm, OpenClaw or Ollama is needed.
+download the public project. No GitHub account, token or SSH key is required.
+No separate host installation of Node.js, npm, OpenClaw or Ollama is needed.
+
+## Download the public project
+
+After installing the host tools, run these commands as your own Linux user:
+
+```bash
+mkdir -p ~/agents
+cd ~/agents
+git clone https://github.com/Krabbens/sonne.git
+cd sonne
+```
+
+`~` is your own home directory. The publisher's account in the repository URL is
+only part of the download address. All later commands run inside this project
+folder. If you open a new terminal, run `cd ~/agents/sonne` again.
 
 ## Quick start after host installation
 
-Start in the checkout created by guide section 3. The guide also explains how to
-create the Discord bot and obtain its IDs and token before filling `.env`.
+First follow guide [section 4](docs/guide.md#4-create-the-discord-bot-and-local-config)
+to create your own Discord bot and obtain your server, channel and allowed-user
+IDs. Replace the example values in `.env` with your own settings. Never reuse
+another person's bot token.
 
 ```bash
 cd ~/agents/sonne
@@ -137,6 +155,18 @@ and moves the container workspace to `/workspace`. Existing `workspace/files/`,
 state, tokens and the downloaded model remain in their existing host locations.
 Then repeat the plugin installation and config validation if they previously failed,
 and run `docker compose up -d --force-recreate openclaw`.
+
+If validation reports an **unfinished plugin data/settings upgrade** after an
+earlier failed installation, inspect the migration error before continuing:
+
+```bash
+docker compose run --rm --no-deps openclaw \
+  node dist/index.js update status --json
+```
+
+Recovery depends on the reported error and is not verified for every existing
+state. Keep your state backup and require successful config validation without
+migration warnings before starting the bot.
 
 Upstream OpenClaw: <https://github.com/openclaw/openclaw>.
 Ollama: <https://github.com/ollama/ollama>.
