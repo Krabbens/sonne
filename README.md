@@ -3,11 +3,15 @@
 OpenClaw + Ollama + Qwen3.5 2B Q4_K_M, served through a restricted Discord channel.
 CPU only, targeting a **Linux amd64 host with 8 GB total RAM**.
 
-**Read the [step-by-step English deployment guide](output/pdf/sonne-openclaw-cpu-8gb.pdf)**
-or edit its [standalone LaTeX source](docs/guide.tex). Its 15 numbered steps cover
-host tools, Docker, downloading the project, your Discord bot, the local model,
-the system prompt and acceptance checks. The [extended notes](docs/guide.md)
-retain additional configuration and troubleshooting details.
+**Start with the [illustrated English installation guide](docs/guide.tex)** in a
+LaTeX editor with PDF preview. Its 19 numbered steps include ten real interface
+screenshots for creating the Discord application, finding the token, choosing
+permissions, enabling Developer Mode and copying IDs. Terminal instructions
+explain pasting commands, password entry and saving files in nano.
+
+The [last exported PDF](output/pdf/sonne-openclaw-cpu-8gb.pdf) predates the
+illustrated revision. The current guide is the LaTeX source linked above; the
+[extended notes](docs/guide.md) contain additional troubleshooting details.
 
 This is a documented deployment profile, **not a measured 8 GB benchmark**.
 OpenClaw 2026.9.8 configuration validation and static checks are verified locally.
