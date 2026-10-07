@@ -5,6 +5,7 @@
 \usepackage{microtype}
 \usepackage{xcolor}
 \usepackage{listings}
+\usepackage{textcomp}
 \usepackage{enumitem}
 \usepackage{booktabs,tabularx}
 \usepackage{fancyhdr}
@@ -17,7 +18,7 @@
 \renewcommand{\headrulewidth}{0pt}
 \setlength{\parindent}{0pt}\setlength{\parskip}{5pt}
 \setlist[enumerate]{leftmargin=*,itemsep=3pt,topsep=3pt}
-\lstset{basicstyle=\ttfamily\footnotesize,backgroundcolor=\color{codebg},frame=single,rulecolor=\color{codebg},framesep=5pt,columns=fullflexible,keepspaces=true,showstringspaces=false,breaklines=false,aboveskip=6pt,belowskip=6pt}
+\lstset{basicstyle=\ttfamily\footnotesize,backgroundcolor=\color{codebg},frame=single,rulecolor=\color{codebg},framesep=5pt,columns=fullflexible,keepspaces=true,showstringspaces=false,breaklines=false,aboveskip=6pt,belowskip=6pt,literate={'}{{\textquotesingle}}1 {`}{{\textasciigrave}}1}
 \newcounter{step}
 \newcommand{\step}[1]{\refstepcounter{step}\vspace{5pt}\par{\large\bfseries\color{ink}\thestep.\ #1}\par\vspace{2pt}}
 \newcommand{\checkpoint}[1]{\textbf{Check:} #1\par}
