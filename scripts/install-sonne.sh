@@ -292,6 +292,51 @@ if (patched !== source) {
 }
 console.log('Discord reply ID normalization applied; 23 offline checks passed.');
 JS_DISCORD_REPLY_FIX
+# Discord displays the bot account and its managed role with the same name.
+# Recognize both while keeping the configured channel/user and mention gates.
+compose run --rm --no-deps -T openclaw node - <<'JS_DISCORD_ROLE_MENTION'
+const fs = require('node:fs');
+const path = require('node:path');
+(async () => {
+  const root = process.env.OPENCLAW_STATE_DIR || '/home/node/.openclaw';
+  const configPath = path.join(root, 'openclaw.json');
+  const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+  const discord = config.channels?.discord;
+  const agent = config.agents?.entries?.sonne;
+  const guildIds = Object.keys(discord?.guilds || {}).filter(id => /^\d{1,20}$/.test(id));
+  if (!agent || !/^\d{1,20}$/.test(discord?.applicationId || '') || !guildIds.length || !process.env.DISCORD_BOT_TOKEN) {
+    throw new Error('The Discord application, permitted server and bot token must be configured first.');
+  }
+  const rolePatterns = [];
+  for (const guildId of guildIds) {
+    const response = await fetch('https://discord.com/api/v10/guilds/' + guildId + '/roles', {
+      headers: {Authorization: 'Bot ' + process.env.DISCORD_BOT_TOKEN},
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!response.ok) throw new Error('Cannot read Discord server roles (HTTP ' + response.status + '). Check the bot token and server membership.');
+    const roles = await response.json();
+    const botRoles = roles.filter(role => role.managed && role.tags?.bot_id === discord.applicationId && /^\d{1,20}$/.test(role.id));
+    if (!botRoles.length) throw new Error('No managed role was found for this bot. Check the Application ID and Server ID.');
+    rolePatterns.push(...botRoles.map(role => '<@&' + role.id + '>'));
+  }
+  const existing = agent.groupChat?.mentionPatterns ?? config.messages?.groupChat?.mentionPatterns ?? [];
+  const patterns = [...new Set([...existing, ...rolePatterns])];
+  if (JSON.stringify(agent.groupChat?.mentionPatterns) !== JSON.stringify(patterns)) {
+    agent.groupChat = {...agent.groupChat, mentionPatterns: patterns};
+    const temporary = configPath + '.sonne-role-mention.' + process.pid + '.tmp';
+    try {
+      fs.writeFileSync(temporary, JSON.stringify(config, null, 2) + '\n', {mode: 0o600, flag: 'wx'});
+      fs.renameSync(temporary, configPath);
+    } finally {
+      if (fs.existsSync(temporary)) fs.unlinkSync(temporary);
+    }
+  }
+  console.log('Discord bot account and managed-role mentions are configured.');
+})().catch(error => {
+  console.error('Discord role mention configuration: ' + error.message);
+  process.exitCode = 1;
+});
+JS_DISCORD_ROLE_MENTION
 compose run --rm --no-deps -T openclaw node dist/index.js config validate --json
 compose run --rm --no-deps -T openclaw node - < tests/check_mounts.cjs
 compose up -d --wait --wait-timeout 180 ollama
