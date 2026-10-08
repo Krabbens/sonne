@@ -1,7 +1,29 @@
 # Sonne
 
 OpenClaw + Ollama + Qwen3.5 2B Q4_K_M, served through a restricted Discord channel.
-CPU only, targeting a **Linux amd64 host with 8 GB total RAM**.
+CPU only, targeting a **Linux host with 8 GB total RAM**.
+
+## Automated installation
+
+For Ubuntu 24.04 or Debian 13, amd64 or ARM64, use the
+[three-page illustrated PDF](output/pdf/sonne-auto-setup.pdf)
+([LaTeX source](docs/guide-auto.tex)) to create your Discord bot and collect its token and IDs.
+Then run in the Linux terminal as your normal user:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y git
+git clone https://github.com/Krabbens/sonne.git ~/sonne-installer
+cd ~/sonne-installer
+bash scripts/install-sonne.sh
+```
+
+The installer creates its runtime checkout in `~/agents/sonne`. If interrupted,
+rerun `bash scripts/install-sonne.sh` from `~/sonne-installer`.
+Preparation mode was tested on Debian 13 ARM64; the full automated installation
+has not yet been validated.
+
+## Manual installation
 
 **Start with the [illustrated English installation guide](docs/guide.tex)** in a
 LaTeX editor with PDF preview. Its 19 numbered steps include ten real interface
