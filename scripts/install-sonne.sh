@@ -106,7 +106,7 @@ git diff --quiet HEAD -- compose.yaml scripts/configure.py templates/openclaw.js
   die 'Core files have local changes; preserve them and use the manual procedure.'
 
 python3 - "$ARCH" "$ENV_FILE" <<'PY_CONFIG'
-import getpass, importlib.util, os, re, tempfile
+import getpass, importlib.util, json, os, re, tempfile
 from pathlib import Path
 import sys
 
@@ -194,6 +194,17 @@ finally:
     if tty is not None:
         tty.close()
 cfg.main()
+# Bound vision encoder work on the CPU-only stack, including image summaries.
+# imageMaxDimensionPx alone does not constrain media-understanding requests.
+config_path = Path('.state/openclaw/openclaw.json')
+config = json.loads(config_path.read_text())
+vision_model = next(model for model in config['models']['providers']['ollama']['models']
+                    if model['id'] == 'qwen3.5:2b-q4_K_M')
+vision_model['mediaInput'] = {'image': {'maxSidePx': 768, 'maxPixels': 262144}}
+config['agents']['defaults']['imageMaxDimensionPx'] = 768
+config['tools']['media']['image']['timeoutSeconds'] = 600
+config_path.write_text(json.dumps(config, indent=2) + '\n')
+config_path.chmod(0o600)
 PY_CONFIG
 
 if ((PREPARE_ONLY)); then
@@ -212,6 +223,75 @@ if [[ ! -f $plugin_marker ]]; then
     @openclaw/discord@2026.9.8 --pin --accept-capabilities --force
   touch "$plugin_marker"
 fi
+# Pinned Discord plugin: normalize model-generated reply IDs before delivery.
+compose run --rm --no-deps -T openclaw node - <<'JS_DISCORD_REPLY_FIX'
+const fs = require('node:fs');
+const path = require('node:path');
+const assert = require('node:assert/strict');
+const root = process.env.OPENCLAW_STATE_DIR || '/home/node/.openclaw';
+const projects = path.join(root, 'npm/projects');
+const candidates = [];
+for (const project of fs.readdirSync(projects)) {
+  const pkg = path.join(projects, project, 'node_modules/@openclaw/discord');
+  const metadata = path.join(pkg, 'package.json');
+  if (!fs.existsSync(metadata) || JSON.parse(fs.readFileSync(metadata, 'utf8')).version !== '2026.9.8') continue;
+  const setup = path.join(pkg, 'dist/.setup');
+  for (const file of fs.readdirSync(setup)) {
+    if (!file.endsWith('.mjs')) continue;
+    const target = path.join(setup, file);
+    const source = fs.readFileSync(target, 'utf8');
+    if (source.includes('function resolveDiscordReplyMessageId(reply, isFirst)')) candidates.push({target, source});
+  }
+}
+assert.equal(candidates.length, 1, 'Expected one pinned Discord reply-reference module');
+const {target, source} = candidates[0];
+const start = source.indexOf('function resolveDiscordReplyReference(params)');
+const end = source.indexOf('//#endregion', start);
+assert.ok(start >= 0 && end > start, 'Unsupported Discord reply-reference module');
+const replacement = String.raw`// Sonne: normalize Discord reply IDs before constructing API payloads.
+function normalizeSonneDiscordReplyId(messageId) {
+  if (typeof messageId !== "string") return;
+  const normalized = messageId.trim().replace(/^<(\d{1,20})>$/, "$1");
+  return /^\d{1,20}$/.test(normalized) ? normalized : void 0;
+}
+function resolveDiscordReplyReference(params) {
+  const messageId = normalizeSonneDiscordReplyId(params.replyToId);
+  if (!messageId) return;
+  const singleUse = params.replyToIdSource !== "explicit" && params.replyToMode !== void 0 && isSingleUseReplyToMode(params.replyToMode);
+  return { messageId, scope: singleUse ? "first" : "all" };
+}
+function createReusableDiscordReplyReference(messageId) {
+  const normalized = normalizeSonneDiscordReplyId(messageId);
+  return normalized ? { messageId: normalized, scope: "all" } : void 0;
+}
+function resolveDiscordReplyMessageId(reply, isFirst) {
+  return reply && (isFirst || reply.scope === "all") ? normalizeSonneDiscordReplyId(reply.messageId) : void 0;
+}
+`;
+const patched = source.slice(0, start).replace(/\/\/ Sonne: normalize Discord reply IDs before constructing API payloads\.\nfunction normalizeSonneDiscordReplyId\(messageId\) \{[\s\S]*?\n\}\n$/, '') + replacement + source.slice(end);
+const helpers = new Function('isSingleUseReplyToMode', replacement + '\nreturn {resolveDiscordReplyReference, createReusableDiscordReplyReference, resolveDiscordReplyMessageId};')(mode => mode === 'first');
+const id = '1557654190090878978';
+for (const input of [id, '<' + id + '>', ' <' + id + '> ']) {
+  assert.equal(helpers.resolveDiscordReplyReference({replyToId: input}).messageId, id);
+  assert.equal(helpers.createReusableDiscordReplyReference(input).messageId, id);
+  assert.equal(helpers.resolveDiscordReplyMessageId({messageId: input, scope: 'all'}, false), id);
+}
+for (const input of [undefined, '', '<message_id>', 'not-an-id']) {
+  assert.equal(helpers.resolveDiscordReplyReference({replyToId: input}), undefined);
+  assert.equal(helpers.createReusableDiscordReplyReference(input), undefined);
+  assert.equal(helpers.resolveDiscordReplyMessageId({messageId: input, scope: 'all'}, true), undefined);
+}
+assert.equal(helpers.resolveDiscordReplyMessageId({messageId: id, scope: 'first'}, false), undefined);
+assert.equal(helpers.resolveDiscordReplyReference({replyToId: id, replyToMode: 'first'}).scope, 'first');
+if (patched !== source) {
+  const backup = path.join(root, 'sonne-hotfix-backups');
+  fs.mkdirSync(backup, {recursive: true, mode: 0o700});
+  const original = path.join(backup, path.basename(target) + '.original');
+  if (!fs.existsSync(original)) fs.writeFileSync(original, source, {mode: 0o600, flag: 'wx'});
+  fs.writeFileSync(target, patched);
+}
+console.log('Discord reply ID normalization applied; 23 offline checks passed.');
+JS_DISCORD_REPLY_FIX
 compose run --rm --no-deps -T openclaw node dist/index.js config validate --json
 compose run --rm --no-deps -T openclaw node - < tests/check_mounts.cjs
 compose up -d --wait --wait-timeout 180 ollama
