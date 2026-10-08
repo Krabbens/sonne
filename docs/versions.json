@@ -22,6 +22,27 @@
     "registry_reported_download_size": "approximately 1.9 GB",
     "ram_fit": "Not measured; see guide page 6"
   },
+  "automated_installer_profiles": {
+    "checked_on": "2026-10-08",
+    "default": "qwen",
+    "qwen": {
+      "tag": "qwen3.5:2b-q4_K_M",
+      "host_ram_gib": 8,
+      "initial_free_disk_gib": 15,
+      "ollama_memory_limit_gib": 4,
+      "runtime_context_tokens": 65536
+    },
+    "gemma": {
+      "tag": "gemma4:e2b-it-qat",
+      "registry_reported_short_id": "07ea59a47401",
+      "registry_reported_download_size": "approximately 4.3 GB",
+      "host_ram_gib": 16,
+      "initial_free_disk_gib": 20,
+      "ollama_memory_limit_gib": 8,
+      "runtime_context_tokens": 32768
+    },
+    "validation": "Both generated configs validated with OpenClaw 2026.9.8 and Docker Compose; see validation.md for inference results."
+  },
   "pdf_builder": {"reportlab": "4.4.9"},
   "note": "Version tags can move. These are observed manifest identities, not runtime benchmark results."
 }

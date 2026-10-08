@@ -41,17 +41,17 @@ Discord interface images belong to their respective rights holders.
 
 ## Automated-install guide, 8 October 2026
 
-The three-page `docs/guide-auto.tex` embeds ten captures and uses the shared
+The four-page `docs/guide-auto.tex` embeds ten captures and uses the shared
 portal and help-centre images listed above. Two additional captures are included:
 
 - `oauth2-scopes-selected.png`: actual URL Generator with only `bot` and
   `applications.commands` checked. Both states were verified in the native
   browser's accessibility tree and screenshot. Cropped to the scope grid;
   labels and checkbox states are unmodified. No invitation was submitted.
-- `discord-reply.png`: actual reply in the deployed Debian bot's channel.
-  Cropped to the test mentions and beginning of the reply, excluding unrelated
-  messages and account/browser UI. It demonstrates ordinary message delivery,
-  not image or file-tool behavior.
+- `discord-reply.png`: screenshot supplied by the user on 8 October 2026,
+  showing a test mention and the bot's complete greeting in the sonne channel.
+  It appears as Figure 10 and demonstrates ordinary message delivery, not image
+  or file-tool behavior.
 
 The automated edition uses five restricted bot permissions; the older manual
 edition's 21-permission reference remains available for that separate profile.

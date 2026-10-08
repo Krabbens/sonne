@@ -8,15 +8,20 @@ REF=8ffc0b70919edde56538391a94a18214a9aeb868
 INSTALL_DIR="$HOME/agents/sonne"
 ENV_FILE=
 PREPARE_ONLY=0
+MODEL_CHOICE=
 die() { printf 'Error: %s\n' "$*" >&2; exit 1; }
 while (($#)); do
   case "$1" in
     --dir) (($# >= 2)) || die 'Missing --dir value'; INSTALL_DIR=$2; shift 2 ;;
     --env-file) (($# >= 2)) || die 'Missing --env-file value'; ENV_FILE=$2; shift 2 ;;
+    --model) (($# >= 2)) || die 'Missing --model value'; MODEL_CHOICE=$2; shift 2 ;;
     --prepare-only) PREPARE_ONLY=1; shift ;;
     --help|-h)
-      printf '%s\n' 'Usage: bash install-sonne.sh [--dir PATH] [--env-file FILE] [--prepare-only]' \
+      printf '%s\n' 'Usage: bash install-sonne.sh [--model qwen|gemma] [--dir PATH] [--env-file FILE] [--prepare-only]' \
         'Ubuntu 24.04 or Debian 13; amd64 or arm64; run as a normal user.' \
+        'qwen: Qwen3.5 2B Q4_K_M, approximately 8 GiB host RAM (default).' \
+        'gemma: Gemma 4 E2B IT QAT, approximately 16 GiB host RAM.' \
+        'First interactive run offers a model menu; later runs keep the saved choice.' \
         'Default destination: ~/agents/sonne. Existing unrelated folders are refused.' \
         '--prepare-only requires git/python3; creates local config without sudo or Docker.'
       exit 0 ;;
@@ -44,16 +49,45 @@ if [[ -e $INSTALL_DIR ]]; then
   [[ $(cat "$INSTALL_DIR/.sonne-auto-installer") == "$REF" ]] || die 'Installer marker mismatch.'
 fi
 
+if [[ -z $MODEL_CHOICE && -f $INSTALL_DIR/.state/sonne-model ]]; then
+  MODEL_CHOICE=$(cat "$INSTALL_DIR/.state/sonne-model")
+fi
+if [[ -z $MODEL_CHOICE ]]; then
+  if [[ -t 0 ]]; then
+    printf '%s\n' 'Choose the local CPU model:' \
+      '  1) Qwen3.5 2B Q4_K_M - 8 GiB RAM, about 1.9 GB download (default)' \
+      '  2) Gemma 4 E2B IT QAT - 16 GiB RAM, about 4.3 GB download'
+    while :; do
+      read -r -p 'Model [1]: ' model_answer || die 'Model selection cancelled.'
+      case "$model_answer" in
+        ''|1|qwen) MODEL_CHOICE=qwen; break ;;
+        2|gemma) MODEL_CHOICE=gemma; break ;;
+        *) printf 'Enter 1 or 2.\n' ;;
+      esac
+    done
+  else
+    MODEL_CHOICE=qwen
+  fi
+fi
+case "$MODEL_CHOICE" in
+  qwen) required_ram_gib=8; required_disk_gib=15 ;;
+  gemma) required_ram_gib=16; required_disk_gib=20 ;;
+  *) die 'Unknown model. Use --model qwen or --model gemma.' ;;
+esac
+printf 'Selected model profile: %s\n' "$MODEL_CHOICE"
+
 if ((PREPARE_ONLY)); then
   command -v git >/dev/null && command -v python3 >/dev/null || die 'Install git and python3 first.'
 else
   ram_kib=$(awk '/^MemTotal:/ {print $2}' /proc/meminfo)
-  ((ram_kib >= 7 * 1024 * 1024)) || die 'This profile requires an approximately 8 GiB host.'
+  ((ram_kib >= (required_ram_gib - 1) * 1024 * 1024)) || \
+    die "The $MODEL_CHOICE profile requires approximately $required_ram_gib GiB host RAM."
   if [[ ! -f $INSTALL_DIR/.sonne-auto-installer ]]; then
     ancestor=$INSTALL_DIR
     while [[ ! -d $ancestor ]]; do ancestor=$(dirname -- "$ancestor"); done
     free_kib=$(df -Pk "$ancestor" | awk 'NR==2 {print $4}')
-    ((free_kib >= 15 * 1024 * 1024)) || die 'At least 15 GiB free disk is required for initial setup.'
+    ((free_kib >= required_disk_gib * 1024 * 1024)) || \
+      die "At least $required_disk_gib GiB free disk is required for initial setup."
   fi
   sudo -v
   sudo apt-get update
@@ -105,7 +139,17 @@ cd "$INSTALL_DIR"
 git diff --quiet HEAD -- compose.yaml scripts/configure.py templates/openclaw.json || \
   die 'Core files have local changes; preserve them and use the manual procedure.'
 
-python3 - "$ARCH" "$ENV_FILE" <<'PY_CONFIG'
+compose() (
+  unset DISCORD_BOT_TOKEN OPENCLAW_GATEWAY_TOKEN LOCAL_UID LOCAL_GID OPENCLAW_IMAGE OLLAMA_IMAGE
+  "${DOCKER[@]}" compose -p sonne --env-file .env -f compose.yaml -f compose.override.yaml "$@"
+)
+if ((!PREPARE_ONLY)) && [[ -f .state/openclaw/openclaw.json ]]; then
+  # Pause the gateway before regenerating a running installation's configuration.
+  # A newly selected model may still need several minutes to download.
+  compose stop openclaw
+fi
+
+python3 - "$ARCH" "$ENV_FILE" "$MODEL_CHOICE" <<'PY_CONFIG'
 import getpass, importlib.util, json, os, re, tempfile
 from pathlib import Path
 import sys
@@ -113,13 +157,29 @@ import sys
 def stop(message):
     raise SystemExit('Configuration: ' + message)
 
-arch, supplied = sys.argv[1:]
+arch, supplied, selected_model = sys.argv[1:]
+profiles = {
+    'qwen': {'id': 'qwen3.5:2b-q4_K_M', 'name': 'Qwen3.5 2B Q4_K_M (local CPU)',
+             'contextWindow': 262144, 'contextTokens': 65536, 'memory': '4g'},
+    'gemma': {'id': 'gemma4:e2b-it-qat', 'name': 'Gemma 4 E2B IT QAT (local CPU)',
+              'contextWindow': 131072, 'contextTokens': 32768, 'memory': '8g'},
+}
+profile = profiles[selected_model]
 spec = importlib.util.spec_from_file_location('sonne_config', 'scripts/configure.py')
 cfg = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(cfg)
-override = 'services:\n  ollama:\n    platform: linux/' + arch + '\n  openclaw:\n    platform: linux/' + arch + '\n    environment:\n      OLLAMA_API_KEY: ollama-local\n'
+legacy_override = 'services:\n  ollama:\n    platform: linux/' + arch + '\n  openclaw:\n    platform: linux/' + arch + '\n    environment:\n      OLLAMA_API_KEY: ollama-local\n'
+def model_override(settings):
+    return ('services:\n  ollama:\n    platform: linux/' + arch + '\n'
+            '    mem_limit: ' + settings['memory'] + '\n'
+            '    memswap_limit: ' + settings['memory'] + '\n'
+            '    environment:\n      OLLAMA_CONTEXT_LENGTH: "' + str(settings['contextTokens']) + '"\n'
+            '  openclaw:\n    platform: linux/' + arch + '\n'
+            '    environment:\n      OLLAMA_API_KEY: ollama-local\n')
+override = model_override(profile)
 override_path = Path('compose.override.yaml')
-if override_path.exists() and override_path.read_text() != override:
+known_overrides = {legacy_override, *(model_override(settings) for settings in profiles.values())}
+if override_path.exists() and override_path.read_text() not in known_overrides:
     stop('Existing Compose override differs. Preserve it and use the manual guide.')
 rules = Path('templates/workspace/AGENTS.md')
 original = 'Work only inside /workspace. Put user-created files in files/.\n'
@@ -186,8 +246,7 @@ try:
         stream.write('\n'.join(lines) + '\n')
         temporary = Path(stream.name)
     temporary.replace(env); env.chmod(0o600)
-    if not override_path.exists():
-        override_path.write_text(override)
+    override_path.write_text(override)
     if original in rules_text:
         rules.write_text(rules_text.replace(original, clarified, 1))
 finally:
@@ -198,23 +257,33 @@ cfg.main()
 # imageMaxDimensionPx alone does not constrain media-understanding requests.
 config_path = Path('.state/openclaw/openclaw.json')
 config = json.loads(config_path.read_text())
-vision_model = next(model for model in config['models']['providers']['ollama']['models']
-                    if model['id'] == 'qwen3.5:2b-q4_K_M')
+vision_model = config['models']['providers']['ollama']['models'][0]
+vision_model.update({key: profile[key] for key in ('id', 'name', 'contextWindow', 'contextTokens')})
+vision_model['params']['num_ctx'] = profile['contextTokens']
 vision_model['mediaInput'] = {'image': {'maxSidePx': 768, 'maxPixels': 262144}}
+model_ref = 'ollama/' + profile['id']
+for route in ('model', 'imageModel'):
+    config['agents']['defaults'][route] = {'primary': model_ref, 'fallbacks': []}
+config['agents']['defaults']['utilityModel'] = model_ref
+for media_model in config['tools']['media']['models']:
+    if media_model['provider'] == 'ollama':
+        media_model['model'] = profile['id']
 config['agents']['defaults']['imageMaxDimensionPx'] = 768
 config['tools']['media']['image']['timeoutSeconds'] = 600
 config_path.write_text(json.dumps(config, indent=2) + '\n')
 config_path.chmod(0o600)
+selection_path = Path('.state/sonne-model')
+selection_path.write_text(selected_model + '\n')
+selection_path.chmod(0o600)
+print('Configured model: ' + profile['id'])
 PY_CONFIG
+
+MODEL_TAG=$(python3 -c 'import json; print(json.load(open(".state/openclaw/openclaw.json"))["models"]["providers"]["ollama"]["models"][0]["id"])')
 
 if ((PREPARE_ONLY)); then
   printf 'Prepared local configuration in %s. No sudo, Docker or inference was used.\n' "$INSTALL_DIR"
   exit 0
 fi
-compose() (
-  unset DISCORD_BOT_TOKEN OPENCLAW_GATEWAY_TOKEN LOCAL_UID LOCAL_GID OPENCLAW_IMAGE OLLAMA_IMAGE
-  "${DOCKER[@]}" compose -p sonne --env-file .env -f compose.yaml -f compose.override.yaml "$@"
-)
 compose config --quiet
 compose pull
 plugin_marker=.state/openclaw/.sonne-discord-2026.9.8-installed
@@ -340,10 +409,10 @@ JS_DISCORD_ROLE_MENTION
 compose run --rm --no-deps -T openclaw node dist/index.js config validate --json
 compose run --rm --no-deps -T openclaw node - < tests/check_mounts.cjs
 compose up -d --wait --wait-timeout 180 ollama
-compose exec -T ollama ollama pull qwen3.5:2b-q4_K_M
+compose exec -T ollama ollama pull "$MODEL_TAG"
 compose up -d --wait --wait-timeout 180 openclaw
 compose exec -T openclaw node dist/index.js infer model run --local --agent sonne \
-  --model ollama/qwen3.5:2b-q4_K_M --prompt 'Reply with exactly: sonne-ok' --json \
+  --model "ollama/$MODEL_TAG" --prompt 'Reply with exactly: sonne-ok' --json \
   > .state/openclaw/installer-model-probe.json
 compose exec -T openclaw node dist/index.js channels status \
   --channel discord --probe --json --timeout 15000 > .state/openclaw/installer-discord-probe.json
@@ -361,4 +430,4 @@ if not discord.get('running') or discord.get('probe', {}).get('ok') is not True 
 print('Local model routing and Discord probe passed. Verify a real mention and file/image tasks next.')
 PY_VERIFY
 compose ps
-printf '\nInstalled in %s\nNext: mention the bot in the permitted Discord channel.\n' "$INSTALL_DIR"
+printf '\nInstalled in %s\nModel: %s\nNext: mention the bot in the permitted Discord channel.\n' "$INSTALL_DIR" "$MODEL_TAG"
