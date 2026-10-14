@@ -9,6 +9,7 @@ INSTALL_DIR="$HOME/agents/sonne"
 ENV_FILE=
 PREPARE_ONLY=0
 MODEL_CHOICE=
+INSTALLER_SOURCE_ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 die() { printf 'Error: %s\n' "$*" >&2; exit 1; }
 while (($#)); do
   case "$1" in
@@ -22,6 +23,8 @@ while (($#)); do
         'qwen: Qwen3.5 2B Q4_K_M, approximately 8 GiB host RAM (default).' \
         'gemma: Gemma 4 E2B IT QAT, approximately 16 GiB host RAM.' \
         'First interactive run offers a model menu; later runs keep the saved choice.' \
+        'Collects the bot token, OAuth2 Client Secret, Discord IDs and web address together.' \
+        'Installs Prompt Studio with one profile per permitted Discord user.' \
         'Default destination: ~/agents/sonne. Existing unrelated folders are refused.' \
         '--prepare-only requires git/python3; creates local config without sudo or Docker.'
       exit 0 ;;
@@ -141,7 +144,9 @@ git diff --quiet HEAD -- compose.yaml scripts/configure.py templates/openclaw.js
 
 compose() (
   unset DISCORD_BOT_TOKEN OPENCLAW_GATEWAY_TOKEN LOCAL_UID LOCAL_GID OPENCLAW_IMAGE OLLAMA_IMAGE
-  "${DOCKER[@]}" compose -p sonne --env-file .env -f compose.yaml -f compose.override.yaml "$@"
+  local compose_files=(-f compose.yaml -f compose.override.yaml)
+  if [[ -f compose.prompt-studio.yaml ]]; then compose_files+=(-f compose.prompt-studio.yaml); fi
+  "${DOCKER[@]}" compose -p sonne --env-file .env "${compose_files[@]}" "$@"
 )
 if ((!PREPARE_ONLY)) && [[ -f .state/openclaw/openclaw.json ]]; then
   # Pause the gateway before regenerating a running installation's configuration.
@@ -149,15 +154,17 @@ if ((!PREPARE_ONLY)) && [[ -f .state/openclaw/openclaw.json ]]; then
   compose stop openclaw
 fi
 
-python3 - "$ARCH" "$ENV_FILE" "$MODEL_CHOICE" <<'PY_CONFIG'
+python3 - "$ARCH" "$ENV_FILE" "$MODEL_CHOICE" "$PREPARE_ONLY" <<'PY_CONFIG'
 import getpass, importlib.util, json, os, re, tempfile
 from pathlib import Path
+from urllib.parse import urlsplit
 import sys
 
 def stop(message):
     raise SystemExit('Configuration: ' + message)
 
-arch, supplied, selected_model = sys.argv[1:]
+arch, supplied, selected_model, prepare_only = sys.argv[1:]
+prepare_only = prepare_only == '1'
 profiles = {
     'qwen': {'id': 'qwen3.5:2b-q4_K_M', 'name': 'Qwen3.5 2B Q4_K_M (local CPU)',
              'contextWindow': 262144, 'contextTokens': 65536, 'memory': '4g'},
@@ -201,6 +208,7 @@ source = env if env.exists() else Path(supplied) if supplied else Path('.env.exa
 values = cfg.read_env(source)
 fields = [
     ('DISCORD_BOT_TOKEN', 'Discord bot token'),
+    ('DISCORD_OAUTH_CLIENT_SECRET', 'Discord OAuth2 Client Secret'),
     ('DISCORD_APPLICATION_ID', 'Application ID'),
     ('DISCORD_GUILD_ID', 'Server ID'),
     ('DISCORD_CHANNEL_ID', 'Channel ID'),
@@ -208,37 +216,80 @@ fields = [
 ]
 if env.exists() and supplied:
     incoming = cfg.read_env(Path(supplied))
-    if any(values.get(k) != incoming.get(k) for k, _ in fields):
+    if any(values.get(k) != incoming.get(k) for k, _ in fields if k != 'DISCORD_OAUTH_CLIENT_SECRET'):
         stop('Existing .env differs; edit it locally instead of replacing its credentials.')
+    for key in ('DISCORD_OAUTH_CLIENT_SECRET', 'PROMPT_STUDIO_URL'):
+        if incoming.get(key):
+            if values.get(key) and values[key] != incoming[key]:
+                stop('Existing OAuth configuration differs; edit it locally instead of replacing its credentials.')
+            values[key] = incoming[key]
 tty = None
+prompt_web_address = not supplied and not prepare_only and (not env.exists() or not values.get('DISCORD_OAUTH_CLIENT_SECRET') or not values.get('PROMPT_STUDIO_URL'))
+if not supplied and not prepare_only and (not env.exists() or not values.get('DISCORD_OAUTH_CLIENT_SECRET')):
+    print('Initial Discord and web configuration: enter both secrets from the same Discord application, then its IDs and the website address.', file=sys.stderr)
+    print('The bot token and OAuth2 Client Secret are different values. Secret input is hidden.', file=sys.stderr)
+def read_terminal(label):
+    global tty
+    if tty is None:
+        try:
+            tty = open('/dev/tty', 'r')
+        except OSError:
+            stop('No terminal available. Supply a completed file with --env-file.')
+    print(label + ': ', end='', file=sys.stderr, flush=True)
+    answer = tty.readline()
+    if not answer:
+        stop('Input cancelled.')
+    return answer.strip()
+def valid_web_address(value):
+    try:
+        parsed = urlsplit(value)
+        return (parsed.scheme in ('http', 'https') and bool(parsed.hostname)
+                and not parsed.username and not parsed.password and not parsed.query and not parsed.fragment
+                and parsed.path in ('', '/') and (parsed.port is None or 1 <= parsed.port <= 65535)
+                and (parsed.scheme == 'https' or parsed.hostname in ('localhost', '127.0.0.1', '::1'))
+                and not re.search(r'''[\s'"\x00$`#\\]''', value))
+    except ValueError:
+        return False
 try:
     for key, label in fields:
         def valid(value):
             if key == 'DISCORD_BOT_TOKEN':
                 return bool(value) and not value.startswith(('replace-', 'your-')) and not re.search(r'''[\s'"\x00]''', value)
+            if key == 'DISCORD_OAUTH_CLIENT_SECRET':
+                return bool(value) and len(value) <= 1024 and not value.startswith(('replace-', 'your-')) and not re.search(r'''[\s'"\x00$`#\\]''', value)
             return all(cfg.ID.fullmatch(x) for x in value.split(','))
+        if key == 'DISCORD_OAUTH_CLIENT_SECRET' and prepare_only and not values.get(key):
+            values[key] = ''
+            continue
         while not valid(values.get(key, '')):
             if supplied:
+                if key == 'DISCORD_OAUTH_CLIENT_SECRET':
+                    stop('Set DISCORD_OAUTH_CLIENT_SECRET in --env-file for Discord web sign-in. Only --prepare-only permits an empty secret.')
                 stop('The supplied environment file has missing or invalid Discord values.')
             if tty is None:
                 try:
                     tty = open('/dev/tty', 'r')
                 except OSError:
                     stop('No terminal available. Supply a completed file with --env-file.')
-            if key == 'DISCORD_BOT_TOKEN':
+            if key in ('DISCORD_BOT_TOKEN', 'DISCORD_OAUTH_CLIENT_SECRET'):
                 values[key] = getpass.getpass(label + ': ', stream=sys.stderr).strip()
             else:
-                print(label + ': ', end='', file=sys.stderr, flush=True)
-                answer = tty.readline()
-                if not answer:
-                    stop('Input cancelled.')
-                values[key] = answer.strip()
+                values[key] = read_terminal(label)
+    web_address = values.get('PROMPT_STUDIO_URL') or 'http://localhost:' + values.get('PROMPT_STUDIO_PORT', '9080')
+    if prompt_web_address:
+        web_address = read_terminal('Prompt Studio URL [' + web_address + ']') or web_address
+    while not valid_web_address(web_address):
+        if supplied:
+            stop('PROMPT_STUDIO_URL must be an HTTPS origin or a localhost HTTP origin, without a path or credentials.')
+        print('Enter an HTTPS origin or localhost HTTP origin, for example http://localhost:9080.', file=sys.stderr)
+        web_address = read_terminal('Prompt Studio URL')
+    values['PROMPT_STUDIO_URL'] = web_address.rstrip('/')
     for key, expected in [('OPENCLAW_IMAGE', 'ghcr.io/openclaw/openclaw:2026.9.8'), ('OLLAMA_IMAGE', 'ollama/ollama:0.40.0')]:
         if values.get(key) not in (None, '', expected):
             stop('Image settings differ from the pinned stack; use the manual upgrade procedure.')
         values[key] = expected
     lines = source.read_text().splitlines()
-    for key in [k for k, _ in fields] + ['OPENCLAW_IMAGE', 'OLLAMA_IMAGE']:
+    for key in [k for k, _ in fields] + ['OPENCLAW_IMAGE', 'OLLAMA_IMAGE', 'PROMPT_STUDIO_URL']:
         lines = [line for line in lines if not line.startswith(key + '=')]
         lines.append(key + '=' + values[key])
     state = Path('.state'); state.mkdir(mode=0o700, exist_ok=True); state.chmod(0o700)
@@ -257,6 +308,9 @@ cfg.main()
 # imageMaxDimensionPx alone does not constrain media-understanding requests.
 config_path = Path('.state/openclaw/openclaw.json')
 config = json.loads(config_path.read_text())
+if Path('compose.prompt-studio.yaml').is_file():
+    config['agents']['defaults']['bootstrapMaxChars'] = max(40000, config['agents']['defaults'].get('bootstrapMaxChars', 0))
+    config['agents']['defaults']['bootstrapTotalMaxChars'] = max(80000, config['agents']['defaults'].get('bootstrapTotalMaxChars', 0))
 vision_model = config['models']['providers']['ollama']['models'][0]
 vision_model.update({key: profile[key] for key in ('id', 'name', 'contextWindow', 'contextTokens')})
 vision_model['params']['num_ctx'] = profile['contextTokens']
@@ -278,6 +332,13 @@ selection_path.chmod(0o600)
 print('Configured model: ' + profile['id'])
 PY_CONFIG
 
+STUDIO_HELPER=$INSTALLER_SOURCE_ROOT/scripts/enable-prompt-studio.sh
+if [[ ! -f $STUDIO_HELPER || ! -f $INSTALLER_SOURCE_ROOT/prototypes/prompt-studio/server.mjs ]]; then
+  STUDIO_HELPER=$INSTALL_DIR/scripts/enable-prompt-studio.sh
+fi
+[[ -f $STUDIO_HELPER ]] || die 'Prompt Studio source is missing. Run this installer from the complete Sonne source checkout.'
+bash "$STUDIO_HELPER" --dir "$INSTALL_DIR" --prepare-only
+
 MODEL_TAG=$(python3 -c 'import json; print(json.load(open(".state/openclaw/openclaw.json"))["models"]["providers"]["ollama"]["models"][0]["id"])')
 
 if ((PREPARE_ONLY)); then
@@ -285,7 +346,8 @@ if ((PREPARE_ONLY)); then
   exit 0
 fi
 compose config --quiet
-compose pull
+compose pull --ignore-buildable
+compose build prompt-studio
 plugin_marker=.state/openclaw/.sonne-discord-2026.9.8-installed
 if [[ ! -f $plugin_marker ]]; then
   compose run --rm --no-deps -T openclaw node dist/index.js plugins install \
@@ -410,7 +472,7 @@ compose run --rm --no-deps -T openclaw node dist/index.js config validate --json
 compose run --rm --no-deps -T openclaw node - < tests/check_mounts.cjs
 compose up -d --wait --wait-timeout 180 ollama
 compose exec -T ollama ollama pull "$MODEL_TAG"
-compose up -d --wait --wait-timeout 180 openclaw
+compose up -d --force-recreate --wait --wait-timeout 180 openclaw prompt-studio
 compose exec -T openclaw node dist/index.js infer model run --local --agent sonne \
   --model "ollama/$MODEL_TAG" --prompt 'Reply with exactly: sonne-ok' --json \
   > .state/openclaw/installer-model-probe.json
@@ -431,3 +493,7 @@ print('Local model routing and Discord probe passed. Verify a real mention and f
 PY_VERIFY
 compose ps
 printf '\nInstalled in %s\nModel: %s\nNext: mention the bot in the permitted Discord channel.\n' "$INSTALL_DIR" "$MODEL_TAG"
+STUDIO_URL=$(python3 -c 'import json; print(json.load(open(".state/prompt-studio/oauth.json"))["redirectUri"].removesuffix("/auth/discord/callback"))')
+printf 'Prompt Studio: %s\nDiscord OAuth2 redirect: %s/auth/discord/callback\n' "$STUDIO_URL" "$STUDIO_URL"
+printf 'Open Prompt Studio and select Sign in with Discord, using a permitted Discord account.\n'
+printf 'To configure or change sign-in later: bash "%s" --dir "%s" --configure-login\n' "$STUDIO_HELPER" "$INSTALL_DIR"

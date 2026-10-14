@@ -9,7 +9,8 @@ separate 16 GiB profile.
 
 For Ubuntu 24.04 or Debian 13, amd64 or ARM64, use the
 [illustrated English PDF](output/pdf/sonne-auto-setup.pdf)
-([LaTeX source](docs/guide-auto.tex)) to create your Discord bot and collect its token and IDs.
+([LaTeX source](docs/guide-auto.tex)) to create your Discord bot, collect its
+bot token, OAuth2 Client Secret and IDs, and register the web sign-in redirect.
 Then run in the Linux terminal as your normal user:
 
 ```bash
@@ -68,10 +69,83 @@ bash scripts/install-sonne.sh --model gemma --prepare-only \
 ```
 
 `--env-file` supplies the Discord fields described in `.env.example`.
-`--prepare-only` generates local configuration without sudo, Docker, model
+The initial interactive configuration collects the bot token, OAuth2 Client
+Secret, Application ID, Server ID, Channel ID, permitted User IDs and Prompt
+Studio URL together. Both secrets are entered at hidden terminal prompts.
+The web address defaults to `http://localhost:9080`. Existing values are reused
+on subsequent runs, including resumed installations.
+
+Before running setup, open **OAuth2** in the same Discord application, save its
+**Client Secret** privately and add `http://localhost:9080/auth/discord/callback`
+under **Redirects**. Save the change. The OAuth2 Client Secret is different from
+the Bot token; the Application ID also serves as the OAuth2 Client ID.
+The installer prints the website address and matching callback when it finishes.
+Open the website and select **Sign in with Discord** using a permitted account.
+
+For a full unattended installation, include `DISCORD_OAUTH_CLIENT_SECRET` in
+`--env-file`. `PROMPT_STUDIO_URL` may be supplied there as well. Register the
+matching `<web-address>/auth/discord/callback` in the Discord Developer Portal.
+`--prepare-only` generates local configuration and Prompt Studio profiles without sudo, Docker, model
 downloads or inference. It skips hardware checks and does not prove runtime
-compatibility. Existing unrelated destination folders and custom Compose
+compatibility. It permits an empty OAuth2 secret for preparation; web sign-in
+remains disabled until the secret is provided. Existing unrelated destination folders and custom Compose
 overrides are refused. See the [validation record](docs/validation.md).
+
+## Prompt Studio prototype
+
+The automated installer also starts the [Prompt Studio web app](prototypes/prompt-studio/README.md)
+inside the Docker stack. One installation serves the team with shared project
+information and separate Discord user profiles. The interface offers five
+disciplines and three sections: **Sonne & team**, **Project** and **[Discipline]’s profile**.
+Project parameters, itemised costs, environmental estimates and common files
+are shared. **Sonne & team → Urgent tasks** orders data deliveries by recipient,
+provider, dependent task, needed-by date and status, with the next recipient shown
+explicitly. **[Discipline]’s profile → Priorities** groups these shared information
+and action requests into a folder for each of the four other disciplines. Each
+folder supports ordering, deadlines and completion status for pull planning.
+Personal goals, earlier information requests and discipline notes belong
+to the signed-in account. Project changes include an author, timestamp, chart
+and full CSV export.
+
+**Project → Brief** is part of the applied prompt. Owners, performance estimates,
+monitoring costs, shared project files and history save automatically to
+Sonne’s project memory and are available on the next permitted Discord turn.
+Owner name and feedback edits also appear in Project history with their author,
+timestamp and previous and current values.
+
+Open <http://localhost:9080> and select **Sign in with Discord**. The verified
+Discord account selects the user's profile; access follows `DISCORD_USER_IDS`.
+The administrator configures the application's OAuth2 Client Secret once and
+registers `http://localhost:9080/auth/discord/callback` in the Discord Developer
+Portal. The main installer collects the secret with the other Discord
+credentials; no separate setup command is needed during installation.
+To change OAuth settings in an existing installation, run:
+
+```sh
+bash scripts/enable-prompt-studio.sh --dir ~/agents/sonne --configure-login
+```
+
+For unattended installation, supply `DISCORD_OAUTH_CLIENT_SECRET` and
+`PROMPT_STUDIO_URL` in the private `--env-file`. Web sign-in stays disabled until
+OAuth is configured. See the [setup instructions](prototypes/prompt-studio/README.md#automatic-installation-and-discord-sign-in).
+
+**Apply to Sonne** publishes shared context and that user's personal brief.
+The OpenClaw plugin selects the shared prompt and the current Discord sender's
+personal prompt for each request. Shared persona and working rules remain in
+place. Drafts save as you edit; publishing remains a separate action.
+
+**Explore the workspace** opens a temporary preview before sign-in. It does
+not read team data, save to Docker or publish instructions.
+
+To add the service to an existing installation, run from the complete source checkout:
+
+```bash
+bash scripts/enable-prompt-studio.sh --dir ~/agents/sonne
+```
+
+The app binds to localhost by default. See its README for internal team access,
+account maintenance and the distinction between personal prompts and private
+agent sessions. All profiles share the existing local model.
 
 ## Manual installation
 

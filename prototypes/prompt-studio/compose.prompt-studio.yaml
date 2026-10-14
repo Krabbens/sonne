@@ -1,0 +1,36 @@
+services:
+  openclaw:
+    volumes:
+      - ./.state/prompt-studio/active:/personal-prompts:ro
+      - ./.state/prompt-studio/active/shared:/workspace/files/prompt-studio/shared/.sonne-memory:ro
+  prompt-studio:
+    build:
+      context: ./prototypes/prompt-studio
+    user: "${LOCAL_UID:?Run the Sonne installer first}:${LOCAL_GID:?Run the Sonne installer first}"
+    restart: unless-stopped
+    environment:
+      HOST: 0.0.0.0
+      PORT: "9080"
+      STUDIO_DATA_DIR: /data
+      STUDIO_AGENT_FILES: /agent-files
+      STUDIO_ACCOUNTS_FILE: /data/accounts.json
+      STUDIO_PROMPTS_DIR: /data/active
+      STUDIO_OAUTH_FILE: /data/oauth.json
+    volumes:
+      - ./.state/prompt-studio:/data
+      - ./workspace/files:/agent-files
+    ports:
+      - "${PROMPT_STUDIO_BIND:-127.0.0.1}:${PROMPT_STUDIO_PORT:-9080}:9080"
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    mem_limit: 192m
+    memswap_limit: 192m
+    cpus: 0.5
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    logging:
+      driver: json-file
+      options:
+        max-size: 5m
+        max-file: "2"

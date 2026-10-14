@@ -1,0 +1,13 @@
+{
+  "id": "sonne-personal-prompts",
+  "name": "Sonne briefs and project memory",
+  "description": "Adds applied briefs and the latest saved project memory for the authenticated Discord sender.",
+  "activation": { "onStartup": true },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "promptsDir": { "type": "string" }
+    }
+  }
+}

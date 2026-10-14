@@ -15,6 +15,8 @@ CONFIG_BLOCK = SOURCE.split("<<'PY_CONFIG'\n", 1)[1].split('\nPY_CONFIG', 1)[0]
 REF = SOURCE.split('REF=', 1)[1].splitlines()[0]
 ENV = (
     'DISCORD_BOT_TOKEN=synthetic-installer-token\n'
+    'DISCORD_OAUTH_CLIENT_SECRET=synthetic-installer-oauth-secret\n'
+    'PROMPT_STUDIO_URL=http://localhost:9080\n'
     'DISCORD_APPLICATION_ID=111111111111111111\n'
     'DISCORD_GUILD_ID=222222222222222222\n'
     'DISCORD_CHANNEL_ID=333333333333333333\n'
@@ -41,7 +43,7 @@ class InstallerTests(unittest.TestCase):
 
     def configure(self, model, check=True):
         return subprocess.run(
-            [sys.executable, '-', 'arm64', str(self.env_file), model],
+            [sys.executable, '-', 'arm64', str(self.env_file), model, '0'],
             input=CONFIG_BLOCK, cwd=self.project, capture_output=True,
             text=True, check=check)
 

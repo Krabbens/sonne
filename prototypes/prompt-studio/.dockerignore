@@ -1,0 +1,6 @@
+*
+!Dockerfile
+!server.mjs
+!discord-auth.mjs
+!dist/
+!dist/**

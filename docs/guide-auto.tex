@@ -11267,11 +11267,13 @@ A002800A002800A002800A002800A002800A002800A002800A002800A002800A002800A002800A00
 }}
 \begin{document}
 {\LARGE\bfseries Sonne: Automated Installation Guide}\par
-{\large Local AI assistant for Discord}\par
+{\large Local AI assistant with Discord and a team website}\par
 
 This guide configures Discord and installs Sonne on an existing Linux system.
-The installer handles Docker, the model download and service configuration.
-Linux commands and Discord messages are identified separately throughout.
+The installer handles Docker, the model download and the Prompt Studio website.
+Team members sign in to the website with Discord and configure shared project
+information and their own assistant profiles. Linux commands, browser actions
+and Discord messages are identified separately throughout.
 
 \textbf{Before you begin}\par
 \begin{tabularx}{\linewidth}{@{}lX@{}}
@@ -11284,9 +11286,11 @@ with permission to add a bot and create a text channel on the chosen server. \\
 \bottomrule
 \end{tabularx}
 
-Keep a private note of the bot token and the four types of ID collected below.
-The token is a password for the bot; do not include it in shared documents,
-screenshots or support messages. Use your own IDs; numbers in the figures are examples.
+Keep a private note of the bot token, OAuth2 Client Secret and the four types
+of ID collected below. Both secrets are credentials; do not include them in
+shared documents, screenshots or support messages. Use your own IDs; numbers
+in the figures are examples. Only the administrator enters the secrets;
+team members use their own Discord accounts to sign in.
 
 \step{Create the Discord application}
 Open the \href{https://discord.com/developers/applications}{Discord Developer Portal}
@@ -11364,7 +11368,39 @@ Repeat for additional permitted users; include yourself for testing.
 Channel ID and at least one permitted User ID.}
 
 \newpage
-\pageheading{Install Sonne on Linux}
+\pageheading{Prepare Discord web sign-in}
+\step{Save the OAuth2 Client Secret and register the redirect}
+Return to the \href{https://discord.com/developers/applications}{Discord Developer Portal}
+and select the \textbf{same Sonne application} used for the bot.
+Open \textbf{OAuth2} and its \textbf{General} settings, if shown.
+\begin{enumerate}
+\item Find \textbf{Client Secret}. Reveal or copy the existing secret if the
+portal offers that option. If no secret can be retrieved, use the portal's
+\textbf{Reset Secret} control and complete the confirmation. A reset invalidates
+the previous secret for any installation already using it.
+\item Save the value privately as \textbf{Discord OAuth2 Client Secret}.
+This is separate from the \textbf{Bot token} and the numeric \textbf{Application ID}.
+The installer uses the Application ID as the OAuth2 Client ID.
+\item Under \textbf{Redirects}, select \textbf{Add Redirect} and enter exactly:
+\end{enumerate}
+\begin{lstlisting}
+http://localhost:9080/auth/discord/callback
+\end{lstlisting}
+Select \textbf{Save Changes}. Keep the \texttt{/auth/discord/callback} path;
+do not enter only the website's home address.
+
+The default \textbf{Prompt Studio URL} is \texttt{http://localhost:9080}.
+Use the same address when the installer asks for the website URL and when
+opening it in your browser. \texttt{localhost} and \texttt{127.0.0.1} are distinct
+OAuth redirect addresses. If you choose another web address, register that
+exact address followed by \texttt{/auth/discord/callback} instead.
+
+Sonne requests only Discord's \texttt{identify} scope for web sign-in.
+You do not need to generate another bot invitation URL for this login.
+See \href{https://docs.discord.com/developers/topics/oauth2}{Discord's OAuth2 documentation}.
+\checkpoint{Your private note contains both secrets and all required IDs.
+The OAuth2 redirect is saved in the same Discord application.}
+
 \step{Open a Linux terminal}
 On the target Linux system, open \textbf{Terminal} from the applications menu.
 If Linux runs in a virtual machine or on another computer, use a terminal in
@@ -11376,6 +11412,8 @@ Linux terminal, use \textbf{Ctrl+Shift+V} or right-click and select \textbf{Past
 When \texttt{sudo} requests a password, enter your \textbf{Linux login password}
 and press Enter. No characters or asterisks appear while you type.
 
+\newpage
+\pageheading{Install Sonne on Linux}
 \step{Download and run the installer}
 The download folder \texttt{\textasciitilde/sonne-installer} must not already exist.
 The \texttt{\textasciitilde} symbol means your Linux home folder.
@@ -11389,7 +11427,8 @@ bash scripts/install-sonne.sh
 Run the script exactly as shown. First choose a model: \textbf{1 for Qwen3.5 2B}
 (default; about 1.9 GB download), or \textbf{2 for Gemma 4 E2B IT QAT}
 (about 4.3 GB download). Use the RAM requirements on page 1.
-The script requests administrative access when needed.
+The script requests administrative access when needed. It collects both
+secrets, all Discord IDs and the web address in one initial configuration.
 At each prompt, paste the corresponding value and press Enter:
 
 \begin{tabularx}{\linewidth}{@{}lX@{}}
@@ -11397,11 +11436,15 @@ At each prompt, paste the corresponding value and press Enter:
 Installer prompt & Value to enter \\
 \midrule
 Discord bot token & Token saved in step 2; input is hidden. \\
+Discord OAuth2 Client Secret & Secret saved in step 5 from the same application;
+input is hidden. Do not enter the bot token here. \\
 Application ID & Application ID from General Information, step 1. \\
 Server ID & ID of the server to which you invited the bot. \\
 Channel ID & ID of the \texttt{sonne} text channel. \\
 Permitted User IDs & Your User ID and any additional permitted User IDs,
 separated by commas with no spaces. For one user, enter only that user's ID. \\
+Prompt Studio URL & Press Enter to accept \texttt{http://localhost:9080}.
+Use the address whose callback you registered in step 5. \\
 \bottomrule
 \end{tabularx}
 
@@ -11410,7 +11453,8 @@ open. The installer creates the running installation in
 \texttt{\textasciitilde/agents/sonne}; this is separate from the download folder.
 Later runs keep the saved model. To change it, rerun with
 \texttt{--model qwen} or \texttt{--model gemma}; the bot is paused during setup.
-User files and credentials are retained. Both choices use the checks on the next page.
+User files, profiles and credentials are retained. The installer reuses saved
+values on later runs, so you do not need to enter the secrets again.
 
 \checkpoint{The installer reports both messages below, without an error,
 before returning to the command prompt:}
@@ -11420,11 +11464,68 @@ Installed in /home/<your-user>/agents/sonne
 \end{lstlisting}
 The installation path contains your actual Linux home folder, which may differ
 from this example.
+At the end, the installer also prints \textbf{Prompt Studio} and
+\textbf{Discord OAuth2 redirect}. Check that the redirect matches the one
+saved in the Developer Portal. No separate web installation command is required.
 
 If the installer reports \emph{Using sudo for Docker now}, sign out of Linux
 completely and sign back in, or reconnect your SSH session, before running the
 Docker commands on the next page. Closing the terminal alone is insufficient.
-If installation stops, follow the recovery steps below.
+If installation stops, follow the recovery steps on the last page.
+
+\newpage
+\pageheading{Open the Sonne website}
+\step{Sign in to Prompt Studio with Discord}
+In a browser on the Linux host, open
+\href{http://localhost:9080/}{\texttt{http://localhost:9080}}.
+Select \textbf{Sign in with Discord}, choose a permitted Discord account and
+authorize access. Use an account whose numeric User ID you entered during setup.
+\checkpoint{The workspace opens with your Discord account and its personal profile.}
+
+If Linux runs in a virtual machine or on another computer, \texttt{localhost}
+in your browser refers to the computer running that browser. Open a browser
+inside Linux, or run this command in a terminal on your own computer:
+\begin{lstlisting}
+ssh -N -L 9080:127.0.0.1:9080 your-user@your-linux-host
+\end{lstlisting}
+Replace \texttt{your-user} and \texttt{your-linux-host} with the Linux login and
+host address. Keep that terminal open, then open \texttt{http://localhost:9080}
+on your computer. For routine team access, the administrator must provide a
+shared HTTPS address and register its matching OAuth2 callback; this guide
+uses localhost for the initial setup.
+
+\step{Choose a discipline and configure your assistant}
+Choose \textbf{Architect}, \textbf{Structural engineer}, \textbf{MEP},
+\textbf{Construction manager} or \textbf{LCFM}.
+Your profile belongs to your Discord account, even if another team member
+chooses the same discipline.
+
+\begin{tabularx}{\linewidth}{@{}p{0.26\linewidth}X@{}}
+\toprule
+Section & Use it for \\
+\midrule
+Sonne \& team & Shared assistant character, tasks, team values, owners and
+urgent requests. Click \textbf{River Team} or its pencil on the home screen
+to rename the team. \\
+Project & The project brief, estimates, costs, source files and change history. \\
+Discipline profile & Your introduction, goals, values, information
+and files. \textbf{Priorities} groups shared requests for the other disciplines. \\
+\bottomrule
+\end{tabularx}
+
+Signed-in drafts save automatically to the Docker installation.
+Select \textbf{Review prompt}, check the compiled instructions and choose
+\textbf{Apply to Sonne} to publish the shared brief and your personal instructions.
+Sonne uses them on your next permitted Discord request. Other project records,
+such as estimates, costs, owner feedback and shared files, update its project
+memory when saved.
+\checkpoint{Apply reports success. Reloading the signed-in workspace retains your changes.}
+
+\textbf{Explore the workspace} opens a temporary preview. Its changes disappear
+on reload; it does not save to Docker or publish a prompt.
+For a missing sign-in button, check the OAuth2 Client Secret. For an invalid
+redirect, compare the full callback with step 5. An access denial means the
+signed-in account's User ID is not in the permitted list.
 
 \newpage
 \pageheading{Verify the installation}
@@ -11483,10 +11584,12 @@ and Message Content Intent. Then inspect status and logs below. \\
 Run these commands in the \textbf{Linux terminal}:
 \begin{lstlisting}
 cd ~/agents/sonne
+export COMPOSE_FILE=compose.yaml:compose.override.yaml:compose.prompt-studio.yaml
 docker compose ps
-docker compose logs --tail=100 openclaw
+docker compose logs --tail=100 openclaw prompt-studio
 \end{lstlisting}
-\texttt{ollama} and \texttt{openclaw} should both be running and healthy.
+\texttt{ollama}, \texttt{openclaw} and \texttt{prompt-studio} should all be
+running and healthy.
 If a check still fails, retain the exact error message and the failed step for
 support. Remove tokens or other credentials before sharing diagnostic output.
 \end{document}
